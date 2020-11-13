@@ -166,6 +166,12 @@
 							id: data[key], text: data[key]
 						});
 					}
+				} else if (Object.keys(data).length !== 0) {
+					for (var key in data) {
+						values.push({
+							id: data[key], text: data[key]
+						});
+					}
 				}
 			}
 		} else { //Dependent field autocompletion
