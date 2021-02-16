@@ -109,7 +109,7 @@ class PFComboBoxInput extends PFFormInput {
 			$inputAttrs['existingvaluesonly'] = 'true';
 		}
         if ( array_key_exists( 'create new', $other_args ) ) {
-            $inputAttrs['createnew'] = $other_args=['create new'];
+            $inputAttrs['createnew'] = $other_args['create new'];
         }
 		if ( array_key_exists( 'placeholder', $other_args ) ) {
 			$inputAttrs['placeholder'] = $other_args['placeholder'];
