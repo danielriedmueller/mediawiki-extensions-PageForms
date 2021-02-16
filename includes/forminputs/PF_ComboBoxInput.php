@@ -108,6 +108,9 @@ class PFComboBoxInput extends PFFormInput {
 		if ( array_key_exists( 'existing values only', $other_args ) ) {
 			$inputAttrs['existingvaluesonly'] = 'true';
 		}
+        if ( array_key_exists( 'create new', $other_args ) ) {
+            $inputAttrs['createnew'] = $other_args=['create new'];
+        }
 		if ( array_key_exists( 'placeholder', $other_args ) ) {
 			$inputAttrs['placeholder'] = $other_args['placeholder'];
 		}
@@ -194,6 +197,11 @@ class PFComboBoxInput extends PFFormInput {
 			'type' => 'boolean',
 			'description' => wfMessage( 'pf_forminputs_existingvaluesonly' )->text()
 		];
+        $params[] = [
+            'name' => 'create new',
+            'type' => 'string',
+            'description' => 'Create new page of category'
+        ];
 		$params[] = [
 			'name' => 'uploadable',
 			'type' => 'boolean',
