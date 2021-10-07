@@ -1,7 +1,7 @@
 /*
  * ext.pf.select2.tokens.js
  *
- * Javascript utility class to handle autocomplete
+ * JavaScript utility class to handle autocomplete
  * for tokens input type using Select2 JS library
  *
  * @file
@@ -44,6 +44,8 @@
 		var existingValuesOnly = (element.attr("existingvaluesonly") == "true");
 		this.existingValuesOnly = existingValuesOnly;
 		this.id = element.attr( "id" );
+		var inputData,
+			$input;
 
 		// This happens sometimes, although it shouldn't. If it does,
 		// something went wrong, so just exit.
@@ -53,8 +55,8 @@
 
 		try {
 			var opts = this.setOptions();
-			var $input = element.select2(opts);
-			var inputData = $input.data("select2");
+			$input = element.select2(opts);
+			inputData = $input.data("select2");
 		} catch (e) {
 			window.console.log(e);
 		}
@@ -85,7 +87,7 @@
 					dropdownItems[optionName] = $(this);
 				} );
 				tokensSelect.prepend(dropdownItems[newTokensOrder[i]]);
-				for ( var i = 1; i < newTokensOrder.length; i++ ){
+				for ( let i = 1; i < newTokensOrder.length; i++ ){
 					dropdownItems[newTokensOrder[i]].insertAfter(dropdownItems[newTokensOrder[i - 1]]);
 				}
 			}
@@ -140,7 +142,10 @@
 		if ( element.attr( "existingvaluesonly" ) !== "true" ) {
 			element.parent().on( "dblclick", "li.select2-selection__choice", function ( event ) {
 				var $target = $(event.target);
-
+				// If the target element is the span within li then change it to the parent li
+				if ( $target.is( $("span.select2-match-entire") ) ) {
+					$target = $target.parent();
+				}
 				// get the text and id of the clicked value
 				var targetData = $target.data();
 				var clickedValue = $target[0].title;
@@ -171,12 +176,14 @@
 		input_id = "#" + input_id;
 		var input_tagname = $(input_id).prop( "tagName" );
 		var autocomplete_opts = this.getAutocompleteOpts();
-		opts.escapeMarkup = function (m) { return m; };
+		opts.escapeMarkup = function (m) {
+			return self.escapeMarkupAndAddHTML(m);
+		};
 		if ( autocomplete_opts.autocompletedatatype !== undefined ) {
 			opts.ajax = this.getAjaxOpts();
 			opts.minimumInputLength = 1;
 			opts.language.inputTooShort = function() {
-				return mw.msg( "pf-select2-input-too-short", opts.minimumInputLength );
+				return mw.msg( "pf-autocomplete-input-too-short", opts.minimumInputLength );
 			};
 		} else if ( input_tagname === "SELECT" ) {
 			opts.data = this.getData( autocomplete_opts.autocompletesettings );
@@ -211,7 +218,7 @@
 			return pf.select2.base.prototype.textHighlight( result.id, term );
 		};
 		opts.language.searching = function() {
-			return mw.msg( "pf-select2-searching" );
+			return mw.msg( "pf-autocomplete-searching" );
 		};
 		opts.placeholder = $(input_id).attr( "placeholder" );
 
@@ -232,7 +239,7 @@
 		if ( maxvalues !== undefined ) {
 			opts.maximumSelectionLength = maxvalues;
 			opts.language.maximumSelected = function() {
-				return mw.msg( "pf-select2-selection-too-big", maxvalues );
+				return mw.msg( "pf-autocomplete-selection-too-big", maxvalues );
 			};
 		}
 		// opts.selectOnClose = true;
@@ -262,16 +269,22 @@
 		if ( dep_on === null ) {
 			if ( autocompletesettings === 'external data' ) {
 				var name = $(input_id).attr(this.nameAttr($(input_id)));
+				// Remove the final "[]".
+				if (name.includes('[]')) {
+					name = name.substring(0, name.length - 2);
+				}
 				var wgPageFormsEDSettings = mw.config.get( 'wgPageFormsEDSettings' );
 				var edgValues = mw.config.get( 'edgValues' );
 				data = {};
 				if ( wgPageFormsEDSettings[name].title !== undefined && wgPageFormsEDSettings[name].title !== "" ) {
 					data.title = edgValues[wgPageFormsEDSettings[name].title];
 					if ( data.title !== undefined && data.title !== null ) {
+						i = 0;
 						data.title.forEach(function() {
 							values.push({
 								id: data.title[i], text: data.title[i]
 							});
+							i++;
 						});
 					}
 					if ( wgPageFormsEDSettings[name].image !== undefined && wgPageFormsEDSettings[name].image !== "" ) {
@@ -308,17 +321,18 @@
 					}
 				}
 			}
-		} else { //Dependent field autocompletion
+		} else { // Dependent field autocompletion
 			var dep_field_opts = this.getDependentFieldOpts( dep_on );
 			var my_server = mw.config.get( 'wgScriptPath' ) + "/api.php";
-			my_server += "?action=pfautocomplete&format=json&property=" + dep_field_opts.prop + "&baseprop=" + dep_field_opts.base_prop + "&basevalue=" + dep_field_opts.base_value;
+			my_server += "?action=pfautocomplete&format=json&property=" + dep_field_opts.prop +
+				"&baseprop=" + dep_field_opts.base_prop + "&basevalue=" + dep_field_opts.base_value;
 			$.ajax({
 				url: my_server,
 				dataType: 'json',
 				async: false,
-				success: function(data) {
-					//Convert data into the format accepted by Select2
-					data.pfautocomplete.forEach( function(item) {
+				success: function(value) {
+					// Convert data into the format accepted by Select2.
+					value.pfautocomplete.forEach( function(item) {
 						if (item.displaytitle !== undefined) {
 							values.push({
 								id: item.displaytitle, text: item.displaytitle

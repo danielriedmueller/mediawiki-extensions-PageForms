@@ -7,17 +7,19 @@
  * @ingroup PF
  */
 
+use MediaWiki\Linker\LinkRenderer;
+use MediaWiki\Linker\LinkTarget;
 use MediaWiki\MediaWikiServices;
 
 class PFUtils {
 	/**
 	 * Get a content language (old $wgContLang) object. For MW < 1.32,
-	 * return the global.  For all others, use MediaWikiServices.
+	 * return the global. For all others, use MediaWikiServices.
 	 *
 	 * @return Language
 	 */
 	public static function getContLang() {
-		if ( method_exists( "MediaWiki\\MediaWikiServices", "getContentLanguage" ) ) {
+		if ( method_exists( MediaWikiServices::class, "getContentLanguage" ) ) {
 			return MediaWikiServices::getInstance()->getContentLanguage();
 		} else {
 			global $wgContLang;
@@ -57,6 +59,31 @@ class PFUtils {
 	}
 
 	/**
+	 * @param LinkRenderer $linkRenderer
+	 * @param LinkTarget|Title $title
+	 * @param string|null $msg Must already be HTML escaped
+	 * @param array $attrs link attributes
+	 * @param array $params query parameters
+	 *
+	 * @return string HTML link
+	 *
+	 * Copied from CargoUtils::makeLink().
+	 */
+	public static function makeLink( $linkRenderer, $title, $msg = null, $attrs = [], $params = [] ) {
+		global $wgTitle;
+
+		if ( $title === null ) {
+			return null;
+		} elseif ( $wgTitle !== null && $title->equals( $wgTitle ) ) {
+			// Display bolded text instead of a link.
+			return Linker::makeSelfLinkObj( $title, $msg );
+		} else {
+			$html = ( $msg == null ) ? null : new HtmlArmor( $msg );
+			return $linkRenderer->makeLink( $title, $html, $attrs, $params );
+		}
+	}
+
+	/**
 	 * Creates the name of the page that appears in the URL;
 	 * this method is necessary because Title::getPartialURL(), for
 	 * some reason, doesn't include the namespace
@@ -68,7 +95,7 @@ class PFUtils {
 		if ( $namespace !== '' ) {
 			$namespace .= ':';
 		}
-		if ( MWNamespace::isCapitalized( $title->getNamespace() ) ) {
+		if ( self::isCapitalized( $title->getNamespace() ) ) {
 			return $namespace . self::getContLang()->ucfirst( $title->getPartialURL() );
 		} else {
 			return $namespace . $title->getPartialURL();
@@ -86,7 +113,7 @@ class PFUtils {
 		if ( $namespace !== '' ) {
 			$namespace .= ':';
 		}
-		if ( MWNamespace::isCapitalized( $title->getNamespace() ) ) {
+		if ( self::isCapitalized( $title->getNamespace() ) ) {
 			return $namespace . self::getContLang()->ucfirst( $title->getText() );
 		} else {
 			return $namespace . $title->getText();
@@ -197,8 +224,17 @@ END;
 		$form_body .= Html::hidden( 'wpSummary', $edit_summary );
 		$form_body .= Html::hidden( 'wpStarttime', $start_time );
 		$form_body .= Html::hidden( 'wpEdittime', $edit_time );
+		// @TODO - add this in at some point. For now, most of these
+		// fields are not getting used anyway.
+		//$form_body .= Html::hidden( 'editRevId', $edit_rev_id );
 
-		if ( $wgUser->isLoggedIn() ) {
+		if ( method_exists( $wgUser, 'isRegistered' ) ) {
+			// MW 1.34+
+			$userIsRegistered = $wgUser->isRegistered();
+		} else {
+			$userIsRegistered = $wgUser->isLoggedIn();
+		}
+		if ( $userIsRegistered ) {
 			$edit_token = $wgUser->getEditToken();
 		} else {
 			$edit_token = \MediaWiki\Session\Token::SUFFIX;
@@ -212,6 +248,9 @@ END;
 		if ( $watch_this ) {
 			$form_body .= Html::hidden( 'wpWatchthis', null );
 		}
+
+		$form_body .= Html::hidden( 'wpUltimateParam', true );
+
 		$text .= Html::rawElement(
 			'form',
 			[
@@ -258,7 +297,6 @@ END;
 			'ext.pageforms.main',
 			'ext.pageforms.submit',
 			'ext.smw.tooltips',
-			'ext.smw.sorttable',
 			// @TODO - the inclusion of modules for specific
 			// form inputs is wasteful, and should be removed -
 			// it should only be done as needed for each input.
@@ -273,7 +311,8 @@ END;
 			'ext.pageforms.select2',
 			'ext.pageforms.rating',
 			'ext.pageforms.fancybox',
-			'ext.pageforms.fullcalendar'
+			'ext.pageforms.fullcalendar',
+			'jquery.makeCollapsible'
 		];
 
 		if ( $wgPageFormsSimpleUpload ) {
@@ -381,7 +420,7 @@ END;
 		// regex adapted from:
 		// https://www.regular-expressions.info/recurse.html
 		$pattern = '/{{(?>[^{}]|(?R))*?}}/'; // needed to fix highlighting - <?
-		$str = preg_replace_callback( $pattern, function ( $match ) {
+		$str = preg_replace_callback( $pattern, static function ( $match ) {
 			$hasPipe = strpos( $match[0], '|' );
 			return $hasPipe ? str_replace( "|", "\1", $match[0] ) : $match[0];
 		}, $str );
@@ -454,5 +493,27 @@ END;
 		}
 
 		return false;
+	}
+
+	public static function isCapitalized( $index ) {
+		if ( class_exists( NamespaceInfo::class ) ) {
+			// MW 1.34+
+			return MediaWikiServices::getInstance()
+				->getNamespaceInfo()
+				->isCapitalized( $index );
+		} else {
+			return MWNamespace::isCapitalized( $index );
+		}
+	}
+
+	public static function getCanonicalName( $index ) {
+		if ( class_exists( NamespaceInfo::class ) ) {
+			// MW 1.34+
+			return MediaWikiServices::getInstance()
+				->getNamespaceInfo()
+				->getCanonicalName( $index );
+		} else {
+			return MWNamespace::getCanonicalIndex( $index );
+		}
 	}
 }

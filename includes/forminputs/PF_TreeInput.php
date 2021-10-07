@@ -15,7 +15,7 @@ class PFTreeInput extends PFFormInput {
 
 	private static $multipleSelect = false;
 
-	public static function getName() {
+	public static function getName(): string {
 		return 'tree';
 	}
 
@@ -120,20 +120,30 @@ class PFTreeInput extends PFFormInput {
 			return null;
 		}
 
-		$class = 'pfTreeInput';
-		if ( $is_mandatory ) {
-			$class .= ' mandatory';
-		}
-
-		$tree = json_encode( $pftree->tree_array );
 		$cur_value = implode( $delimiter, $pftree->current_values );
+		$params = [
+			'multiple' => self::$multipleSelect,
+			'delimiter' => $delimiter,
+			'cur_value' => $cur_value
+		];
 
-		$params['multiple'] = self::$multipleSelect;
-		$params['delimiter'] = $delimiter;
-		$params['cur_value'] = $cur_value;
+		$treeInputAttrs = [
+			'id' => $input_name . 'treeinput',
+			'class' => 'pfTreeInput',
+			'style' => 'height: ' . $height . 'px; width: ' . $width . 'px; overflow: auto; position: relative;',
+			'data' => json_encode( $pftree->tree_array ),
+			'params' => json_encode( $params )
+		];
 
-		$params = json_encode( $params );
-		$text = "<div id='" . $input_name . 'treeinput' . "' class='" . $class . "' style='" . 'height: ' . $height . 'px; width: ' . $width . 'px; overflow: auto; position: relative;' . "' data='" . $tree . "' params='" . $params . "'></div><input type='hidden' class='PFTree_data' name='" . $input_name . "'>";
+		$text = Html::element( 'div', $treeInputAttrs, null );
+		$text .= "<input type='hidden' class='PFTree_data' name='" . $input_name . "'>";
+
+		$wrapperClass = 'pfTreeInputWrapper';
+		if ( $is_mandatory ) {
+			$wrapperClass .= ' mandatory';
+		}
+		$text = Html::rawElement( 'div', [ 'class' => $wrapperClass ], $text );
+
 		return $text;
 	}
 
@@ -176,7 +186,7 @@ class PFTreeInput extends PFFormInput {
 	 * Returns the HTML code to be included in the output page for this input.
 	 * @return string
 	 */
-	public function getHtmlText() {
+	public function getHtmlText(): string {
 		return self::getHTML(
 			$this->mCurrentValue,
 			$this->mInputName,

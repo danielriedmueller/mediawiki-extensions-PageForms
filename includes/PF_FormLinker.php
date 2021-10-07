@@ -1,4 +1,7 @@
 <?php
+
+use MediaWiki\Linker\LinkRenderer;
+
 /**
  * Gets the form(s) used to edit a page, both for existing pages and for
  * not-yet-created, red-linked pages.
@@ -42,7 +45,7 @@ class PFFormLinker {
 		}
 	}
 
-	public static function createPageWithForm( $title, $formName ) {
+	public static function createPageWithForm( $title, $formName, $inQueryArr ) {
 		/** @var PFFormPrinter $wgPageFormsFormPrinter */
 		global $wgPageFormsFormPrinter;
 
@@ -57,7 +60,7 @@ class PFFormLinker {
 			$wgPageFormsFormPrinter->formHTML(
 				$formDefinition, false, false, null, $preloadContent,
 				'Some very long page name that will hopefully never get created ABCDEF123',
-				null, false, false, true
+				null, false, false, true, $inQueryArr
 			);
 		$params = [];
 
@@ -94,25 +97,19 @@ class PFFormLinker {
 	 * @param bool &$ret
 	 * @return true
 	 */
-	static function setBrokenLink( MediaWiki\Linker\LinkRenderer $linkRenderer, $target, $isKnown, &$text, &$attribs, &$ret ) {
+	static function setBrokenLink( LinkRenderer $linkRenderer, $target, $isKnown, &$text, &$attribs, &$ret ) {
+		global $wgContentNamespaces;
+		global $wgPageFormsLinkAllRedLinksToForms;
+
 		// If it's not a broken (red) link, exit.
 		if ( $isKnown ) {
 			return true;
 		}
-		// If the link is to a special page, exit.
-		$namespace = $target->getNamespace();
-		if ( $namespace == NS_SPECIAL ) {
-			return true;
-		}
 
-		global $wgPageFormsLinkAllRedLinksToForms;
-		// Don't do this if it's a category page - it probably
-		// won't have an associated form.
-		if ( $wgPageFormsLinkAllRedLinksToForms && $target->getNamespace() != NS_CATEGORY ) {
-			// The class of $target can be either Title or
-			// TitleValue.
-			$title = Title::newFromLinkTarget( $target );
-			$attribs['href'] = $title->getLinkURL( [ 'action' => 'formedit', 'redlink' => '1' ] );
+		$namespace = $target->getNamespace();
+
+		// Quick check.
+		if ( $namespace == NS_SPECIAL ) {
 			return true;
 		}
 
@@ -121,6 +118,20 @@ class PFFormLinker {
 			$attribs['href'] = $title->getLinkURL( [ 'action' => 'formedit', 'redlink' => '1' ] );
 			return true;
 		}
+
+		// If there's no default form, keep going only if we're
+		// modifying "all" red links, and this is a link to a
+		// content namespace.
+		if ( !$wgPageFormsLinkAllRedLinksToForms ||
+		!in_array( $namespace, $wgContentNamespaces ) ) {
+			return true;
+		}
+
+		// We're still here - change the link.
+		// The class of $target can be either Title or
+		// TitleValue.
+		$title = Title::newFromLinkTarget( $target );
+		$attribs['href'] = $title->getLinkURL( [ 'action' => 'formedit', 'redlink' => '1' ] );
 
 		return true;
 	}

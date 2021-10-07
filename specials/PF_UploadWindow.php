@@ -268,7 +268,7 @@ class PFUploadWindow extends UnlistedSpecialPage {
 	protected function recoverableUploadError( $message ) {
 		$sessionKey = $this->mUpload->stashFile()->getFileKey();
 		$message = '<h2>' . $this->msg( 'uploadwarning' )->escaped() . "</h2>\n" .
-			'<div class="error">' . $message . "</div>\n";
+			'<div class="errorbox">' . $message . "</div>\n";
 
 		$form = $this->getUploadForm( $message, $sessionKey );
 		$form->setSubmitText( $this->msg( 'upload-tryagain' )->text() );
@@ -284,7 +284,7 @@ class PFUploadWindow extends UnlistedSpecialPage {
 		$sessionKey = $this->mUpload->stashFile()->getFileKey();
 
 		$warningHtml = '<h2>' . $this->msg( 'uploadwarning' )->escaped() . "</h2>\n"
-			. '<ul class="warning">';
+			. '<ul class="warningbox">';
 		foreach ( $warnings as $warning => $args ) {
 				if ( $warning == 'exists' ) {
 					$msg = self::getExistsWarning( $args );
@@ -323,14 +323,14 @@ class PFUploadWindow extends UnlistedSpecialPage {
 	 */
 	protected function uploadError( $message ) {
 		$message = '<h2>' . $this->msg( 'uploadwarning' )->escaped() . "</h2>\n" .
-			'<div class="error">' . $message . "</div>\n";
+			'<div class="errorbox">' . $message . "</div>\n";
 		$this->showUploadForm( $this->getUploadForm( $message ) );
 	}
 
 	/**
 	 * Do the upload.
 	 * Checks are made in SpecialUpload::execute()
-	 * @return array|bool
+	 * @return array|bool|void
 	 */
 	protected function processUpload() {
 		// Verify permissions
@@ -511,7 +511,14 @@ END;
 	 * @return bool
 	 */
 	protected function watchCheck() {
-		if ( $this->getUser()->getOption( 'watchdefault' ) ) {
+		if ( method_exists( MediaWikiServices::class, 'getUserOptionsLookup' ) ) {
+			// MediaWiki 1.35+
+			if ( MediaWikiServices::getInstance()->getUserOptionsLookup()
+				->getOption( $this->getUser(), 'watchdefault' ) ) {
+				// Watch all edits!
+				return true;
+			}
+		} elseif ( $this->getUser()->getOption( 'watchdefault' ) ) {
 			// Watch all edits!
 			return true;
 		}
@@ -526,7 +533,18 @@ END;
 		if ( $local && $local->exists() ) {
 			// We're uploading a new version of an existing file.
 			// No creation, so don't watch it if we're not already.
-			return $this->getUser()->isWatched( $local->getTitle() );
+			if ( method_exists( \MediaWiki\Watchlist\WatchlistManager::class, 'isWatched' ) ) {
+				// MediaWiki 1.37+
+				return MediaWikiServices::getInstance()->getWatchlistManager()
+					->isWatched( $this->getUser(), $local->getTitle() );
+			} else {
+				return $this->getUser()->isWatched( $local->getTitle() );
+			}
+		} elseif ( method_exists( MediaWikiServices::class, 'getUserOptionsLookup' ) ) {
+			// MediaWiki 1.35+
+			// New page should get watched if that's our option.
+			return MediaWikiServices::getInstance()->getUserOptionsLookup()
+				->getOption( $this->getUser(), 'watchcreations' );
 		} else {
 			// New page should get watched if that's our option.
 			return $this->getUser()->getOption( 'watchcreations' );
@@ -655,7 +673,7 @@ END;
 		} elseif ( $exists['warning'] == 'was-deleted' ) {
 			# If the file existed before and was deleted, warn the user of this
 			$ltitle = SpecialPage::getTitleFor( 'Log' );
-			$linkRenderer = $this->getLinkRenderer();
+			$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 			$llink = $linkRenderer->makeKnownLink(
 				$ltitle,
 				wfMessage( 'deletionlog' )->escaped(),

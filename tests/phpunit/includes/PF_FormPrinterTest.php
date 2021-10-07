@@ -10,11 +10,11 @@ class PFFormPrinterTest extends MediaWikiTestCase {
 	/**
 	 * Set up the environment
 	 */
-	protected function setUp() : void {
+	protected function setUp(): void {
 		// Make sure the form is not in "disabled" state. Unfortunately setting up the global state
 		// environment in a proper way to have PFFormPrinter work on a mock title object is very
 		// difficult. Therefore we just override the permission check by using a hook.
-		Hooks::register( 'PageForms::UserCanEditPage', function ( $pageTitle, &$userCanEditPage ) {
+		Hooks::register( 'PageForms::UserCanEditPage', static function ( $pageTitle, &$userCanEditPage ) {
 			$userCanEditPage = true;
 			return true;
 		} );
@@ -33,7 +33,20 @@ class PFFormPrinterTest extends MediaWikiTestCase {
 		$wgOut->getContext()->setTitle( $this->getTitle() );
 
 		list( $form_text, $page_text, $form_page_title, $generated_page_name ) =
-			$wgPageFormsFormPrinter->formHTML( $setup['form_definition'], true, false, null, null, 'TestStringForFormPageTitle', null );
+			$wgPageFormsFormPrinter->formHTML(
+				$form_def = $setup['form_definition'],
+				$form_submitted = true,
+				$source_is_page = false,
+				$form_id = null,
+				$existing_page_content = null,
+				$page_name = 'TestStringForFormPageTitle',
+				$page_name_formula = null,
+				$is_query = false,
+				$is_embedded = false,
+				$is_autocreate = false,
+				$autocreate_query = [],
+				$user = self::getTestUser()->getUser()
+			);
 
 		$this->assertStringContainsString(
 			$expected['expected_form_text'],

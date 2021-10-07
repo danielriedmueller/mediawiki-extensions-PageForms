@@ -1,8 +1,8 @@
 <?php
 /**
  * Defines a class, PFTemplateField, that represents a field in a template,
- * including any possible semantic aspects it may have. Used in both creating
- * templates and displaying user-created forms.
+ * including any possible Cargo or SMW storage it may have. Used in both
+ * creating templates and displaying user-created forms.
  *
  * @author Yaron Koren
  * @file
@@ -22,6 +22,7 @@ class PFTemplateField {
 	private $mCargoTable;
 	private $mCargoField;
 	private $mFieldType;
+	private $mRealFieldType = null;
 	private $mHierarchyStructure;
 
 	private $mPossibleValues;
@@ -32,17 +33,94 @@ class PFTemplateField {
 	private $mIsMandatory = false;
 	private $mIsUnique = false;
 	private $mRegex = null;
+	private $mHoldsTemplate = null;
 
 	static function create( $name, $label, $semanticProperty = null, $isList = null, $delimiter = null, $display = null ) {
 		$f = new PFTemplateField();
 		$f->mFieldName = trim( str_replace( '\\', '', $name ) );
-		$f->mLabel = trim( str_replace( '\\', '', $label ) );
+		if ( $label !== null ) {
+			// Keep this field null if no value was set.
+			$f->mLabel = trim( str_replace( '\\', '', $label ) );
+		}
 		$f->setSemanticProperty( $semanticProperty );
 		$f->mIsList = $isList;
 		$f->mDelimiter = $delimiter;
 		$f->mDisplay = $display;
 		// Delimiter should default to ','.
 		if ( $isList && !$delimiter ) {
+			$f->mDelimiter = ',';
+		}
+		return $f;
+	}
+
+	public function toWikitext() {
+		$attribsStrings = [];
+		// Only include the label if it's different from the field name.
+		if ( $this->mLabel != '' &&
+			( $this->mLabel !== $this->mFieldName ) ) {
+			$attribsStrings['label'] = $this->mLabel;
+		}
+		if ( $this->mCargoField != '' && $this->mCargoField !== str_replace( ' ', '_', $this->mFieldName ) ) {
+			$attribsStrings['cargo field'] = $this->mCargoField;
+		}
+		// Only set list and delimiter information if there's no Cargo
+		// field - if there is, they will be set in #cargo_declare.
+		if ( $this->mCargoField == '' ) {
+			if ( $this->mIsList == true ) {
+				$attribsStrings['list'] = true;
+				if ( $this->mDelimiter != ',' ) {
+					$attribsStrings['delimiter'] = $this->mDelimiter;
+				}
+			}
+		}
+		if ( $this->mSemanticProperty != '' ) {
+			$attribsStrings['property'] = $this->mSemanticProperty;
+		}
+		if ( $this->mNamespace != '' ) {
+			$attribsStrings['namespace'] = $this->mNamespace;
+		}
+		if ( $this->mDisplay != '' ) {
+			$attribsStrings['display'] = $this->mDisplay;
+		}
+		$text = $this->mFieldName;
+		if ( count( $attribsStrings ) > 0 ) {
+			$attribsFullStrings = [];
+			foreach ( $attribsStrings as $key => $value ) {
+				if ( $value === true ) {
+					$attribsFullStrings[] = $key;
+				} else {
+					$attribsFullStrings[] = "$key=$value";
+				}
+			}
+			$text .= ' (' . implode( ';', $attribsFullStrings ) . ')';
+		}
+		return $text;
+	}
+
+	static function newFromParams( $fieldName, $fieldParams ) {
+		$f = new PFTemplateField();
+		$f->mFieldName = $fieldName;
+		foreach ( $fieldParams as $key => $value ) {
+			if ( $key == 'label' ) {
+				$f->mLabel = $value;
+			} elseif ( $key == 'cargo field' ) {
+				$f->mCargoField = $value;
+			} elseif ( $key == 'property' ) {
+				$f->setSemanticProperty( $value );
+			} elseif ( $key == 'list' ) {
+				$f->mIsList = true;
+			} elseif ( $key == 'delimiter' ) {
+				$f->mDelimiter = $value;
+			} elseif ( $key == 'namespace' ) {
+				$f->mNamespace = $value;
+			} elseif ( $key == 'display' ) {
+				$f->mDisplay = $value;
+			} elseif ( $key == 'holds template' ) {
+				$f->mHoldsTemplate = $value;
+			}
+		}
+		// Delimiter should default to ','.
+		if ( $f->mIsList && !$f->mDelimiter ) {
 			$f->mDelimiter = ',';
 		}
 		return $f;
@@ -68,6 +146,9 @@ class PFTemplateField {
 		$store = PFUtils::getSMWStore();
 		// this returns an array of objects
 		$allowed_values = PFValuesUtils::getSMWPropertyValues( $store, $proptitle, "Allows value" );
+		if ( empty( $allowed_values ) ) {
+			$allowed_values = PFValuesUtils::getSMWPropertyValues( $store, $proptitle, "Allows value list" );
+		}
 		$label_formats = PFValuesUtils::getSMWPropertyValues( $store, $proptitle, "Has field label format" );
 		$propValue = SMWDIProperty::newFromUserLabel( $this->mSemanticProperty );
 		$this->mPropertyType = $propValue->findPropertyTypeID();
@@ -141,6 +222,7 @@ class PFTemplateField {
 			} else {
 				$this->mFieldType = 'Enumeration';
 			}
+			$this->mRealFieldType = $fieldDescription->mType;
 		} elseif ( $fieldDescription->mType == 'Text' && $fieldDescription->mSize != '' && $fieldDescription->mSize <= 100 ) {
 			$this->mFieldType = 'String';
 		} else {
@@ -174,6 +256,14 @@ class PFTemplateField {
 		return $this->mPropertyType;
 	}
 
+	function getExpectedCargoField() {
+		if ( $this->mCargoField != '' ) {
+			return $this->mCargoField;
+		} else {
+			return str_replace( ' ', '_', $this->mFieldName );
+		}
+	}
+
 	function getFullCargoField() {
 		if ( $this->mCargoTable == '' || $this->mCargoField == '' ) {
 			return null;
@@ -183,6 +273,10 @@ class PFTemplateField {
 
 	function getFieldType() {
 		return $this->mFieldType;
+	}
+
+	function getRealFieldType() {
+		return $this->mRealFieldType;
 	}
 
 	function getPossibleValues() {
@@ -224,6 +318,10 @@ class PFTemplateField {
 		return $this->mRegex;
 	}
 
+	function getHoldsTemplate() {
+		return $this->mHoldsTemplate;
+	}
+
 	function setTemplateField( $templateField ) {
 		$this->mTemplateField = $templateField;
 	}
@@ -240,7 +338,7 @@ class PFTemplateField {
 		$this->mFieldType = $fieldType;
 
 		if ( $fieldType == 'File' ) {
-			$this->mNamespace = MWNamespace::getCanonicalName( NS_FILE );
+			$this->mNamespace = PFUtils::getCanonicalName( NS_FILE );
 		}
 	}
 
@@ -254,14 +352,16 @@ class PFTemplateField {
 
 	function createText( $cargoInUse ) {
 		$fieldProperty = $this->mSemanticProperty;
-		if ( $this->mIsList ) {
-			// If this field is meant to contain a list,
-			// add on an 'arraymap' function, that will
-			// call this semantic markup tag on every
-			// element in the list.
-			// Find a string that's not in the semantic
-			// field call, to be used as the variable.
-			$var = "x"; // default - use this if all the attempts fail
+		// If this field is meant to contain a list, and the field has
+		// an associated SMW property, add on an 'arraymap' function,
+		// which will call the property tag on every element in the
+		// list. If, on the other hand, it uses Cargo, use #arraymap
+		// just for the link - but only if it's of type "Page".
+		if ( $this->mIsList && ( $fieldProperty != '' ||
+			( $cargoInUse && $this->mFieldType == 'Page' ) ) ) {
+			// Find a string that's not in the SMW property
+			// name, to be used as the variable.
+			$var = "x"; // default - also use this if all the attempts fail
 			if ( strstr( $fieldProperty, $var ) ) {
 				$var_options = [ 'y', 'z', 'xx', 'yy', 'zz', 'aa', 'bb', 'cc' ];
 				foreach ( $var_options as $option ) {

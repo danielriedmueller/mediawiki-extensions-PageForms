@@ -20,6 +20,8 @@ class PFRunQuery extends IncludableSpecialPage {
 		if ( !$this->including() ) {
 			$this->setHeaders();
 		}
+		$this->getOutput()->enableOOUI();
+
 		$form_name = $this->including() ? $query : $this->getRequest()->getVal( 'form', $query );
 		$form_name = str_replace( '_', ' ', $form_name );
 
@@ -83,7 +85,10 @@ class PFRunQuery extends IncludableSpecialPage {
 		}
 
 		list( $form_text, $data_text, $form_page_title ) =
-			$wgPageFormsFormPrinter->formHTML( $form_definition, $form_submitted, false, $form_title->getArticleID(), $content, null, null, true, $embedded );
+			$wgPageFormsFormPrinter->formHTML(
+				$form_definition, $form_submitted, false, $form_title->getArticleID(),
+				$content, null, null, true, $embedded, false, [], $user
+			);
 		$text = "";
 
 		// Get the text of the results.

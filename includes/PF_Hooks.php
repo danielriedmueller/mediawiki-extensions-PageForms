@@ -8,6 +8,8 @@
  * @ingroup PF
  */
 
+use MediaWiki\MediaWikiServices;
+
 class PFHooks {
 
 	// Used for caching by addToCargoTablesLinks().
@@ -19,7 +21,7 @@ class PFHooks {
 			return 1;
 		}
 
-		define( 'PF_VERSION', '5.0-alpha' );
+		define( 'PF_VERSION', '5.2.1' );
 
 		$GLOBALS['wgPageFormsIP'] = dirname( __DIR__ ) . '/../';
 
@@ -43,8 +45,7 @@ class PFHooks {
 	public static function initialize() {
 		global $wgHooks;
 
-		$GLOBALS['wgPageFormsPartialPath'] = '/extensions/PageForms';
-		$GLOBALS['wgPageFormsScriptPath'] = $GLOBALS['wgScriptPath'] . $GLOBALS['wgPageFormsPartialPath'];
+		$GLOBALS['wgPageFormsScriptPath'] = $GLOBALS['wgExtensionAssetsPath'] . '/PageForms';
 
 		if ( class_exists( 'MediaWiki\HookContainer\HookContainer' ) ) {
 			// MW 1.35+
@@ -80,26 +81,20 @@ class PFHooks {
 		// the value here instead.
 		$pageFormsDir = __DIR__ . '/..';
 
+		$mapsModuleAttrs = [
+			'localBasePath' => $pageFormsDir,
+			'remoteExtPath' => 'PageForms',
+			'dependencies' => [ 'oojs-ui.styles.icons-location' ]
+		];
+
 		if ( ExtensionRegistry::getInstance()->isLoaded( 'OpenLayers' ) ) {
-			$resourceLoader->register( [
-				'ext.pageforms.maps' => [
-					'localBasePath' => $pageFormsDir,
-					'remoteExtPath' => 'PageForms',
-					'scripts' => '/libs/PF_maps.offline.js',
-					'dependencies' => [
-						'ext.openlayers.main',
-					],
-				],
-			] );
+			$mapsModuleAttrs['scripts'] = '/libs/PF_maps.offline.js';
+			$mapsModuleAttrs['dependencies'][] = 'ext.openlayers.main';
 		} else {
-			$resourceLoader->register( [
-				'ext.pageforms.maps' => [
-					'localBasePath' => $pageFormsDir,
-					'remoteExtPath' => 'PageForms',
-					'scripts' => '/libs/PF_maps.js',
-				],
-			] );
+			$mapsModuleAttrs['scripts'] = '/libs/PF_maps.js';
 		}
+
+		$resourceLoader->register( [ 'ext.pageforms.maps' => $mapsModuleAttrs ] );
 
 		return true;
 	}
@@ -132,15 +127,17 @@ class PFHooks {
 	}
 
 	static function registerFunctions( Parser $parser ) {
-		$parser->setFunctionHook( 'default_form', [ 'PFParserFunctions', 'renderDefaultForm' ] );
-		$parser->setFunctionHook( 'forminput', [ 'PFParserFunctions', 'renderFormInput' ] );
-		$parser->setFunctionHook( 'formlink', [ 'PFParserFunctions', 'renderFormLink' ] );
-		$parser->setFunctionHook( 'formredlink', [ 'PFParserFunctions', 'renderFormRedLink' ] );
-		$parser->setFunctionHook( 'queryformlink', [ 'PFParserFunctions', 'renderQueryFormLink' ] );
-		$parser->setFunctionHook( 'arraymap', [ 'PFParserFunctions', 'renderArrayMap' ], Parser::SFH_OBJECT_ARGS );
-		$parser->setFunctionHook( 'arraymaptemplate', [ 'PFParserFunctions', 'renderArrayMapTemplate' ], Parser::SFH_OBJECT_ARGS );
+		$parser->setFunctionHook( 'default_form', [ 'PFDefaultForm', 'run' ] );
+		$parser->setFunctionHook( 'forminput', [ 'PFFormInputParserFunction', 'run' ] );
+		$parser->setFunctionHook( 'formlink', [ 'PFFormLink', 'run' ] );
+		$parser->setFunctionHook( 'formredlink', [ 'PFFormRedLink', 'run' ] );
+		$parser->setFunctionHook( 'queryformlink', [ 'PFQueryFormLink', 'run' ] );
+		$parser->setFunctionHook( 'arraymap', [ 'PFArrayMap', 'run' ], Parser::SFH_OBJECT_ARGS );
+		$parser->setFunctionHook( 'arraymaptemplate', [ 'PFArrayMapTemplate', 'run' ], Parser::SFH_OBJECT_ARGS );
 
-		$parser->setFunctionHook( 'autoedit', [ 'PFParserFunctions', 'renderAutoEdit' ] );
+		$parser->setFunctionHook( 'autoedit', [ 'PFAutoEdit', 'run' ] );
+		$parser->setFunctionHook( 'template_params', [ 'PFTemplateParams', 'run' ] );
+		$parser->setFunctionHook( 'template_display', [ 'PFTemplateDisplay', 'run' ], Parser::SFH_OBJECT_ARGS );
 
 		return true;
 	}
@@ -174,7 +171,12 @@ class PFHooks {
 		$vars['wgPageFormsHeightForMinimizingInstances'] = $wgPageFormsHeightForMinimizingInstances;
 		$vars['wgPageFormsShowOnSelect'] = $wgPageFormsShowOnSelect;
 		$vars['wgPageFormsScriptPath'] = $wgPageFormsScriptPath;
-		$vars['edgValues'] = $edgValues;
+		if ( method_exists( 'EDParserFunctions', 'getAllValues' ) ) {
+			// External Data 2.3+
+			$vars['edgValues'] = EDParserFunctions::getAllValues();
+		} else {
+			$vars['edgValues'] = $edgValues;
+		}
 		$vars['wgPageFormsEDSettings'] = $wgPageFormsEDSettings;
 		$vars['wgAmericanDates'] = $wgAmericanDates;
 
@@ -235,7 +237,7 @@ class PFHooks {
 
 		$editColumn = [ 'edit' => [ 'ooui-icon' => 'edit', 'ooui-title' => 'edit' ] ];
 		$indexOfDrilldown = array_search( 'drilldown', array_keys( $allowedActions ) );
-		$pos = false === $indexOfDrilldown ? count( $allowedActions ) : $indexOfDrilldown + 1;
+		$pos = $indexOfDrilldown === false ? count( $allowedActions ) : $indexOfDrilldown + 1;
 		$allowedActions = array_merge( array_slice( $allowedActions, 0, $pos ), $editColumn, array_slice( $allowedActions, $pos ) );
 
 		return true;
@@ -250,8 +252,8 @@ class PFHooks {
 	 * @param string $tableName Cargo table name
 	 * @param bool $isReplacementTable Whether this table iss a replacement table
 	 * @param bool $hasReplacementTable Whether this table has a replacement table
-	 * @param string[] $templatesThatDeclareTables An array
-	 * @param string[] $templatesThatAttachToTables An array
+	 * @param int[][] $templatesThatDeclareTables
+	 * @param string[] $templatesThatAttachToTables
 	 *
 	 * @return bool
 	 *
@@ -294,13 +296,14 @@ class PFHooks {
 			return true;
 		}
 
+		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 		$sp = PFUtils::getSpecialPage( 'MultiPageEdit' );
 		$editMsg = wfMessage( 'edit' )->text();
 		$linkParams = [ 'template' => $templateName, 'form' => $formName ];
-		$text = Linker::linkKnown( $sp->getPageTitle(), $editMsg, [], $linkParams );
+		$text = $linkRenderer->makeKnownLink( $sp->getPageTitle(), $editMsg, [], $linkParams );
 
 		$indexOfDrilldown = array_search( 'drilldown', array_keys( $actionLinks ) );
-		$pos = false === $indexOfDrilldown ? count( $actionLinks ) : $indexOfDrilldown + 1;
+		$pos = $indexOfDrilldown === false ? count( $actionLinks ) : $indexOfDrilldown + 1;
 		$actionLinks = array_merge( array_slice( $actionLinks, 0, $pos ), [ 'edit' => $text ], array_slice( $actionLinks, $pos ) );
 		return true;
 	}
@@ -315,8 +318,8 @@ class PFHooks {
 	 * @param string $tableName Cargo table name
 	 * @param bool $isReplacementTable Whether this table iss a replacement table
 	 * @param bool $hasReplacementTable Whether this table has a replacement table
-	 * @param string[] $templatesThatDeclareTables An array
-	 * @param string[] $templatesThatAttachToTables An array
+	 * @param int[][] $templatesThatDeclareTables
+	 * @param string[] $templatesThatAttachToTables
 	 * @param string[] $actionList
 	 *
 	 * @return bool
@@ -345,7 +348,7 @@ class PFHooks {
 	 * Disable TinyMCE if this is a form definition page, or a form-editable page.
 	 *
 	 * @param Title $title The page Title object
-	 * @return Whether or not to disable TinyMCE
+	 * @return bool Whether or not to disable TinyMCE
 	 */
 	public static function disableTinyMCE( $title ) {
 		if ( $title->getNamespace() == PF_NS_FORM ) {

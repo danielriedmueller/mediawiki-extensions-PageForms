@@ -1,14 +1,15 @@
 /*
  * ext.pf.select2.base.js
  *
- * Base class to handle autocomplete for various
- * input types using the Select2 JS library.
+ * Base class to handle autocomplete for various input types using the Select2
+ * JS library.
  *
  * @file
  *
  * @licence GNU GPL v2+
  * @author Jatin Mehta
  * @author Priyanshu Varshney
+ * @author Yaron Koren
  */
 
 ( function ( $, mw, pf ) {
@@ -69,7 +70,7 @@
 					// This is needed after the empty() call,
 					// to create an option element to restore
 					// correct value in remote autocompletion.
-					var newOption = new Option(data.text, data.id, false, false);
+					let newOption = new Option(data.text, data.id, false, false);
 					$input.append(newOption).trigger('change');
 				}
 				// This is required so that the existing value
@@ -89,7 +90,7 @@
 						};
 						if ( !$input.find( "option[value='" + rawValue + "']" ).length ) {
 							// Does this ever get called?
-							var newOption = new Option( rawValue, rawValue, false, false );
+							let newOption = new Option( rawValue, rawValue, false, false );
 							$input.append(newOption).trigger( 'change' );
 						}
 						if ( rawValue !== '' ) {
@@ -192,17 +193,17 @@
 		getDependentFieldOpts: function( dep_on ) {
 			var input_id = "#" + this.id;
 			var dep_field_opts = {};
-			var base_element;
+			var $base_element;
 
 			if ( this.partOfMultiple($(input_id)) ) {
-				base_element = $(input_id).closest( ".multipleTemplateInstance" )
+				$base_element = $(input_id).closest( ".multipleTemplateInstance" )
 					.find( '[origname ="' + dep_on + '" ]' );
 			} else {
-				base_element = $('[name ="' + dep_on + '" ]');
+				$base_element = $('[name ="' + dep_on + '" ]');
 			}
-			dep_field_opts.base_value = base_element.val();
+			dep_field_opts.base_value = $base_element.val();
 			dep_field_opts.base_prop = mw.config.get( 'wgPageFormsFieldProperties' )[dep_on] ||
-				base_element.attr( "autocompletesettings" );
+				$base_element.attr( "autocompletesettings" );
 			dep_field_opts.prop = $(input_id).attr( "autocompletesettings" ).split( "," )[0];
 
 			return dep_field_opts;
@@ -225,9 +226,49 @@
 			autocomplete_opts.autocompletesettings = $(input_id).attr( "autocompletesettings" );
 			return autocomplete_opts;
 		},
+
+		/**
+		 * Escape out any HTML, and then add our own HTML to display
+		 * the correct bolding.
+		 * The first part of this function is directly copied from
+		 * Utils::escapeMarkup() in the Select2 code. @TODO: figure out
+		 * how to just call that code directly.
+		 *
+		 * @param {Mixed} markup
+		 * @return {Mixed}
+		 */
+		escapeMarkupAndAddHTML: function( markup ) {
+			var replaceMap = {
+				'\\': '&#92;',
+				'&': '&amp;',
+				'<': '&lt;',
+				'>': '&gt;',
+				'"': '&quot;',
+				'\'': '&#39;',
+				'/': '&#47;'
+			};
+
+			// Do not try to escape the markup if it's not a string
+			if (typeof markup !== 'string') {
+				return markup;
+			}
+
+			var escapedMarkup = String(markup).replace(/[&<>"'\/\\]/g, function (match) {
+				return replaceMap[match];
+			})
+
+			var boldStart = String.fromCharCode(1);
+			var boldEnd = String.fromCharCode(2);
+			return '<span class="select2-match-entire">' +
+				escapedMarkup
+				.replace(boldStart, '<span class="select2-match"><b>')
+				.replace(boldEnd, '</b></span>') +
+				'</span>';
+		},
+
 		/*
 		 * Refreshes the field if there is a change
-		 * in the autocomplete vlaues
+		 * in the autocomplete values.
 		 *
 		 * @param {HTMLElement} element
 		 *
@@ -271,11 +312,11 @@
 			}
 
 			if ( start !== -1 ) {
-				markup = (text.substr(0, start) +
-				'<span class="select2-match-entire"><span class="select2-match"><b>' +
-				text.substr(start,term.length) +
-				'</b></span>' +
-				text.substr(start + term.length, text.length)+'</span>');
+				var boldStart = String.fromCharCode(1);
+				var boldEnd = String.fromCharCode(2);
+				markup = text.substr(0, start) + boldStart +
+					text.substr(start,term.length) + boldEnd +
+					text.substr(start + term.length, text.length);
 			} else {
 				markup = (text);
 			}

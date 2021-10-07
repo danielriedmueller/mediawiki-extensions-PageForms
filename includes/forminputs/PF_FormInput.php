@@ -54,16 +54,11 @@ abstract class PFFormInput {
 	 * Returns the name of the input type this class handles.
 	 *
 	 * This is the name to be used in the field definition for the "input type"
-	 * parameter.
+	 * parameter. Used in PFFormPrinter::registerInputType().
 	 *
 	 * @return string The name of the input type this class handles.
-	 * @fixme Should be declared abstract. Static functions cannot be abstract.
-	 * Do we need this method at all? The name should be set outside this class
-	 * when the input type is registered.
 	 */
-	public static function getName() {
-		return null;
-	}
+	abstract public static function getName();
 
 	/**
 	 * Returns the set of SMW property types which this input can
@@ -144,11 +139,9 @@ abstract class PFFormInput {
 	 * Ideally this HTML code should provide a basic functionality even if the
 	 * browser is not JavaScript capable. I.e. even without JavaScript the user
 	 * should be able to input values.
-	 * @return null
+	 * @return string
 	 */
-	public function getHtmlText() {
-		return null;
-	}
+	abstract public function getHtmlText();
 
 	/**
 	 *

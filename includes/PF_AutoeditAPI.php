@@ -6,7 +6,6 @@
  */
 
 use MediaWiki\MediaWikiServices;
-use Wikimedia\AtEase\AtEase;
 
 /**
  * @ingroup PageForms
@@ -39,7 +38,9 @@ class PFAutoeditAPI extends ApiBase {
 	const DEBUG = 3;
 
 	private $mOptions = [];
+	/** @var int|null */
 	private $mAction;
+	/** @var int|null */
 	private $mStatus;
 	private $mIsAutoEdit = false;
 
@@ -47,7 +48,7 @@ class PFAutoeditAPI extends ApiBase {
 	 * Converts an options string into an options array and stores it
 	 *
 	 * @param string $options
-	 * @return the options array
+	 * @return array Options
 	 */
 	function addOptionsFromString( $options ) {
 		return $this->parseDataFromQueryString( $this->mOptions, $options );
@@ -66,7 +67,7 @@ class PFAutoeditAPI extends ApiBase {
 	 * Return value is either null or one of ACTION_SAVE, ACTION_PREVIEW,
 	 * ACTION_FORMEDIT
 	 *
-	 * @return null|number
+	 * @return int|null
 	 */
 	function getAction() {
 		return $this->mAction;
@@ -93,7 +94,7 @@ class PFAutoeditAPI extends ApiBase {
 	 * 200 - ok
 	 * 400 - error
 	 *
-	 * @return number
+	 * @return int
 	 */
 	function getStatus() {
 		return $this->mStatus;
@@ -168,14 +169,14 @@ class PFAutoeditAPI extends ApiBase {
 			unset( $this->mOptions['wpDiff'] );
 		} elseif ( array_key_exists( 'action', $this->mOptions ) ) {
 			switch ( $this->mOptions['action'] ) {
-				case 'pfautoedit' :
+				case 'pfautoedit':
 					$this->mIsAutoEdit = true;
 					$this->mAction = self::ACTION_SAVE;
 					break;
-				case 'preview' :
+				case 'preview':
 					$this->mAction = self::ACTION_PREVIEW;
 					break;
-				default :
+				default:
 					$this->mAction = self::ACTION_FORMEDIT;
 			}
 		} else {
@@ -323,16 +324,15 @@ class PFAutoeditAPI extends ApiBase {
 		// set up form data:
 		// merge data coming from the web request on top of some defaults
 		$data = array_merge(
-				[
-					'wpTextbox1' => $targetContent,
-					'wpUnicodeCheck' => 'ℳ𝒲♥𝓊𝓃𝒾𝒸ℴ𝒹ℯ',
-					'wpSummary' => '',
-					'wpStarttime' => wfTimestampNow(),
-					'wpEdittime' => '',
-					'wpEditToken' => isset( $this->mOptions[ 'token' ] ) ? $this->mOptions[ 'token' ] : $this->getUser()->getEditToken(),
-					'action' => 'submit',
-				],
-				$this->mOptions
+			[
+				'wpTextbox1' => $targetContent,
+				'wpUnicodeCheck' => 'ℳ𝒲♥𝓊𝓃𝒾𝒸ℴ𝒹ℯ',
+				'wpSummary' => '',
+				'wpStarttime' => wfTimestampNow(),
+				'wpEditToken' => isset( $this->mOptions[ 'token' ] ) ? $this->mOptions[ 'token' ] : $this->getUser()->getEditToken(),
+				'action' => 'submit',
+			],
+			$this->mOptions
 		);
 
 		if ( array_key_exists( 'format', $data ) ) {
@@ -433,7 +433,7 @@ class PFAutoeditAPI extends ApiBase {
 			return;
 		}
 
-		$resultDetails = false;
+		$resultDetails = [];
 		# Allow bots to exempt some edits from bot flagging
 		$bot = $user->isAllowed( 'bot' ) && $editor->bot;
 
@@ -450,11 +450,10 @@ class PFAutoeditAPI extends ApiBase {
 
 		switch ( $status->value ) {
 			case EditPage::AS_HOOK_ERROR_EXPECTED: // A hook function returned an error
-
 				// show normal Edit page
 
 				// remove Preview and Diff standard buttons from editor page
-				Hooks::register( 'EditPageBeforeEditButtons', function ( &$editor, &$buttons, &$tabindex ){
+				Hooks::register( 'EditPageBeforeEditButtons', static function ( &$editor, &$buttons, &$tabindex ){
 					foreach ( array_keys( $buttons ) as $key ) {
 						if ( $key !== 'save' ) {
 							unset( $buttons[$key] );
@@ -475,24 +474,22 @@ class PFAutoeditAPI extends ApiBase {
 			case EditPage::AS_TEXTBOX_EMPTY: // user tried to create a new section without content
 			case EditPage::AS_MAX_ARTICLE_SIZE_EXCEEDED: // article is too big (> $wgMaxArticleSize), after merging in the new section
 			case EditPage::AS_END: // WikiPage::doEdit() was unsuccessfull
-
 				throw new MWException( wfMessage( 'pf_autoedit_fail', $this->mOptions['target'] )->parse() );
 
 			case EditPage::AS_HOOK_ERROR: // Article update aborted by a hook function
-
 				$this->logMessage( 'Article update aborted by a hook function', self::DEBUG );
 				return false; // success
 
 			case EditPage::AS_PARSE_ERROR: // Can't parse content
-
 				throw new MWException( $status->getHTML() );
 
 			case EditPage::AS_SUCCESS_NEW_ARTICLE: // Article successfully created
-
 				$query = $resultDetails['redirect'] ? 'redirect=no' : '';
 				$anchor = isset( $resultDetails['sectionanchor'] ) ? $resultDetails['sectionanchor'] : '';
 
 				// Give extensions a chance to modify URL query on create
+				$sectionanchor = null;
+				$extraQuery = null;
 				Hooks::run( 'ArticleUpdateBeforeRedirect', [ $editor->getArticle(), &$sectionanchor, &$extraQuery ] );
 
 				if ( $extraQuery ) {
@@ -521,7 +518,6 @@ class PFAutoeditAPI extends ApiBase {
 				return false; // success
 
 			case EditPage::AS_SUCCESS_UPDATE: // Article successfully updated
-
 				$extraQuery = '';
 				$sectionanchor = $resultDetails['sectionanchor'];
 
@@ -555,7 +551,6 @@ class PFAutoeditAPI extends ApiBase {
 				return false; // success
 
 			case EditPage::AS_BLANK_ARTICLE: // user tried to create a blank page
-
 				$this->logMessage( 'User tried to create a blank page', self::DEBUG );
 
 				$this->getOutput()->redirect( $editor->getContextTitle()->getFullURL() );
@@ -564,7 +559,6 @@ class PFAutoeditAPI extends ApiBase {
 				return false; // success
 
 			case EditPage::AS_SPAM_ERROR: // summary contained spam according to one of the regexes in $wgSummarySpamRegex
-
 				$match = $resultDetails['spam'];
 				if ( is_array( $match ) ) {
 					$match = $this->getLanguage()->listToText( $match );
@@ -594,10 +588,8 @@ class PFAutoeditAPI extends ApiBase {
 				throw new PermissionsError( $permission );
 
 			default:
-				// We don't recognize $status->value. The only way that can happen
-				// is if an extension hook aborted from inside ArticleSave.
-				// Render the status object into $editor->hookError
-				$editor->hookError = '<div class="error">' . $status->getWikitext() . '</div>';
+				// We don't recognize $status->value. Presumably this can only
+				// happen if some other extension set the value.
 				throw new MWException( $status->getHTML() );
 		}
 	}
@@ -660,10 +652,10 @@ class PFAutoeditAPI extends ApiBase {
 	 *
 	 * This parses the formula and replaces &lt;unique number&gt; tags
 	 *
-	 * @param type $targetNameFormula
+	 * @param string $targetNameFormula
 	 *
 	 * @throws MWException
-	 * @return type
+	 * @return string
 	 */
 	protected function generateTargetName( $targetNameFormula ) {
 		$targetName = $targetNameFormula;
@@ -694,9 +686,9 @@ class PFAutoeditAPI extends ApiBase {
 		$targetName = str_replace( ' ', '_', $targetName );
 
 		// now run the parser on it
-		global $wgTitle;
+		global $wgTitle, $wgUser;
 		$targetName = PFUtils::getParser()->transformMsg(
-			$targetName, new ParserOptions(), $wgTitle
+			$targetName, ParserOptions::newFromUser( $wgUser ), $wgTitle
 		);
 
 		$titleNumber = '';
@@ -724,8 +716,6 @@ class PFAutoeditAPI extends ApiBase {
 				// the target name contains only underscores and number fields,
 				// i.e. would result in an empty title without the number set
 				$titleNumber = '1';
-			} else {
-				$titleNumber = '';
 			}
 
 			// set target title
@@ -787,7 +777,7 @@ class PFAutoeditAPI extends ApiBase {
 	 *
 	 * @param number $numDigits the min width of the random number
 	 * @param bool $hasPadding should the number should be padded with zeros instead of spaces?
-	 * @return number
+	 * @return string
 	 */
 	static function makeRandomNumber( $numDigits = 1, $hasPadding = false ) {
 		$maxValue = pow( 10, $numDigits ) - 1;
@@ -923,7 +913,9 @@ class PFAutoeditAPI extends ApiBase {
 					// don't get saved, for some convoluted
 					// reason.
 					$formContent, ( $isFormSubmitted && !$this->mIsAutoEdit ), $pageExists,
-					$formArticleId, $preloadContent, $targetName, $targetNameFormula
+					$formArticleId, $preloadContent, $targetName, $targetNameFormula,
+					$is_query = false, $is_embedded = false, $is_autocreate = false,
+					$autocreate_query = [], $this->getUser()
 				);
 			$formHtmlHasRun = true;
 
@@ -937,7 +929,7 @@ class PFAutoeditAPI extends ApiBase {
 
 		// We already preloaded stuff for saving/previewing -
 		// do not do this again.
-		if ( $isFormSubmitted && !$wgRequest->getCheck( 'partial' ) ) {
+		if ( $isFormSubmitted ) {
 			$preloadContent = '';
 			$pageExists = false;
 		} else {
@@ -945,24 +937,27 @@ class PFAutoeditAPI extends ApiBase {
 			$pageExists = ( is_a( $targetTitle, 'Title' ) && $targetTitle->exists() );
 		}
 
-		// Spoof $wgRequest for PFFormPrinter::formHTML().
-		if ( isset( $_SESSION ) ) {
-			$wgRequest = new FauxRequest( $this->mOptions, true, $_SESSION );
-		} else {
-			$wgRequest = new FauxRequest( $this->mOptions, true );
-		}
-
 		// Get wikitext for submitted data and form - call formHTML(),
 		// if we haven't called it already.
 		if ( $preloadContent == '' ) {
+			// Spoof $wgRequest for PFFormPrinter::formHTML().
+			if ( isset( $_SESSION ) ) {
+				$wgRequest = new FauxRequest( $this->mOptions, true, $_SESSION );
+			} else {
+				$wgRequest = new FauxRequest( $this->mOptions, true );
+			}
 			list( $formHTML, $targetContent, $generatedFormName, $generatedTargetNameFormula ) =
-				$wgPageFormsFormPrinter->formHTML( $formContent, $isFormSubmitted, $pageExists, $formArticleId, $preloadContent, $targetName, $targetNameFormula );
+				$wgPageFormsFormPrinter->formHTML(
+					$formContent, $isFormSubmitted, $pageExists,
+					$formArticleId, $preloadContent, $targetName, $targetNameFormula,
+					$is_query = false, $is_embedded = false, $is_autocreate = false,
+					$autocreate_query = [], $this->getUser()
+				);
+			// Restore original request.
+			$wgRequest = $oldRequest;
 		} else {
 			$generatedFormName = $form_page_title;
 		}
-
-		// Restore original request.
-		$wgRequest = $oldRequest;
 
 		if ( $generatedFormName !== '' ) {
 			$this->mOptions['formtitle'] = $generatedFormName;
@@ -1010,31 +1005,29 @@ class PFAutoeditAPI extends ApiBase {
 	private function parseDataFromHTMLFrag( $html ) {
 		$data = [];
 		$doc = new DOMDocument();
-		$oldVal = libxml_disable_entity_loader( true );
-		if ( method_exists( AtEase::class, 'suppressWarnings' ) ) {
-			// MW >= 1.33
-			AtEase::suppressWarnings();
-		} else {
-			\MediaWiki\suppressWarnings();
+		if ( LIBXML_VERSION < 20900 ) {
+			// PHP < 8
+			$oldVal = libxml_disable_entity_loader( true );
 		}
-		$doc->loadHTML(
+
+		// phpcs:ignore Generic.PHP.NoSilencedErrors.Discouraged
+		@$doc->loadHTML(
 			'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd"><html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/></head><body>'
 			. $html
 			. '</body></html>'
 		);
-		if ( method_exists( AtEase::class, 'restoreWarnings' ) ) {
-			// MW >= 1.33
-			AtEase::restoreWarnings();
-		} else {
-			\MediaWiki\restoreWarnings();
+
+		if ( LIBXML_VERSION < 20900 ) {
+			// PHP < 8
+			libxml_disable_entity_loader( $oldVal );
 		}
-		libxml_disable_entity_loader( $oldVal );
 
 		// Process input tags.
 		$inputs = $doc->getElementsByTagName( 'input' );
 
 		for ( $i = 0; $i < $inputs->length; $i++ ) {
 			$input = $inputs->item( $i );
+			'@phan-var DOMElement $input';/** @var DOMElement $input */
 			$type = $input->getAttribute( 'type' );
 			$name = trim( $input->getAttribute( 'name' ) );
 
@@ -1058,6 +1051,8 @@ class PFAutoeditAPI extends ApiBase {
 				case 'hidden':
 				case 'image':
 				case 'password':
+				case 'date':
+				case 'datetime':
 				// case 'reset':
 				// case 'submit':
 				case 'text':
@@ -1151,16 +1146,23 @@ class PFAutoeditAPI extends ApiBase {
 	 */
 	public static function addToArray( &$array, $key, $value, $toplevel = true ) {
 		$matches = [];
-
 		if ( preg_match( '/^([^\[\]]*)\[([^\[\]]*)\](.*)/', $key, $matches ) ) {
 			// for some reason toplevel keys get their spaces encoded by MW.
 			// We have to imitate that.
 			if ( $toplevel ) {
 				$key = str_replace( ' ', '_', $matches[1] );
 			} else {
-				$key = $matches[1];
+				if ( is_numeric( $matches[1] ) && isset( $matches[2] ) ) {
+					// Multiple instances are indexed like 0a,1a,2a... to differentiate
+					// the inputs the form starts out with from any inputs added by the Javascript.
+					// Append the character "a" only if the instance number is numeric.
+					// If the key(i.e. the instance) doesn't exists then the numerically next
+					// instance is created whatever be the key.
+					$key = $matches[1] . 'a';
+				} else {
+					$key = $matches[1];
+				}
 			}
-
 			// if subsequent element does not exist yet or is a string (we prefer arrays over strings)
 			if ( !array_key_exists( $key, $array ) || is_string( $array[$key] ) ) {
 				$array[$key] = [];

@@ -5,6 +5,8 @@
  * @ingroup PF
  */
 
+use MediaWiki\MediaWikiServices;
+
 /**
  * This class is distinct from PFTemplateField in that it represents a template
  * field defined in a form definition - it contains an PFTemplateField object
@@ -34,6 +36,7 @@ class PFFormField {
 	private $mFieldArgs;
 	private $mDescriptionArgs;
 	private $mLabel;
+	private $mLabelMsg;
 	// somewhat of a hack - these two fields are for a field in a specific
 	// representation of a form, not the form definition; ideally these
 	// should be contained in a third 'field' class, called something like
@@ -156,6 +159,10 @@ class PFFormField {
 		return $this->mLabel;
 	}
 
+	public function getLabelMsg() {
+		return $this->mLabelMsg;
+	}
+
 	public function isDisabled() {
 		return $this->mIsDisabled;
 	}
@@ -171,6 +178,8 @@ class PFFormField {
 		$form_is_disabled,
 		User $user
 	) {
+		global $wgPageFormsEmbeddedTemplates;
+
 		$parser = PFUtils::getParser();
 
 		$f = new PFFormField();
@@ -195,6 +204,19 @@ class PFFormField {
 				return $f;
 			}
 			$f->template_field = PFTemplateField::create( $field_name, null );
+		}
+
+		$embeddedTemplate = $f->template_field->getHoldsTemplate();
+		if ( $embeddedTemplate != '' ) {
+			$f->mIsHidden = true;
+			$f->mHoldsTemplate = true;
+			// Store this information so that the embedded/"held"
+			// template - which is hopefully after this one in the
+			// form definition - can be handled correctly. In forms,
+			// both the embedding field and the embedded template are
+			// specified as such, but in templates (i.e., with
+			// #template_params), it's only the embedding field.
+			$wgPageFormsEmbeddedTemplates[$embeddedTemplate] = [ $template_name, $field_name ];
 		}
 
 		$semantic_property = null;
@@ -249,6 +271,8 @@ class PFFormField {
 					$f->mPreloadPage = $sub_components[1];
 				} elseif ( $sub_components[0] == 'label' ) {
 					$f->mLabel = $sub_components[1];
+				} elseif ( $sub_components[0] == 'label msg' ) {
+					$f->mLabelMsg = $sub_components[1];
 				} elseif ( $sub_components[0] == 'show on select' ) {
 					// html_entity_decode() is needed to turn '&gt;' to '>'
 					$vals = explode( ';', html_entity_decode( $sub_components[1] ) );
@@ -259,7 +283,7 @@ class PFFormField {
 						}
 						$option_div_pair = explode( '=>', $val, 2 );
 						if ( count( $option_div_pair ) > 1 ) {
-							$option = $option_div_pair[0];
+							$option = trim( $parser->recursiveTagParse( $option_div_pair[0] ) );
 							$div_id = $option_div_pair[1];
 							if ( array_key_exists( $div_id, $show_on_select ) ) {
 								$show_on_select[$div_id][] = $option;
@@ -329,8 +353,14 @@ class PFFormField {
 					$default_filename = $parser->recursiveTagParse( $default_filename );
 					$f->mFieldArgs['default filename'] = $default_filename;
 				} elseif ( $sub_components[0] == 'restricted' ) {
+					if ( method_exists( MediaWikiServices::class, 'getUserGroupManager' ) ) {
+						// MediaWiki >= 1.35
+						$effectiveGroups = MediaWikiServices::getInstance()->getUserGroupManager()->getUserEffectiveGroups( $user );
+					} else {
+						$effectiveGroups = $user->getEffectiveGroups();
+					}
 					$f->mIsRestricted = !array_intersect(
-						$user->getEffectiveGroups(), array_map( 'trim', explode( ',', $sub_components[1] ) )
+						$effectiveGroups, array_map( 'trim', explode( ',', $sub_components[1] ) )
 					);
 				}
 			}
@@ -377,18 +407,20 @@ class PFFormField {
 			$f->mPossibleValues = array_filter( $cargoValues, 'strlen' );
 		}
 
+		if ( $f->mPossibleValues == null ) {
+			$f->mPossibleValues = $f->template_field->getPossibleValues();
+		}
+
 		$mappingType = null;
-		if ( $f->mPossibleValues !== null ) {
-			if ( array_key_exists( 'mapping template', $f->mFieldArgs ) ) {
-				$mappingType = 'template';
-			} elseif ( array_key_exists( 'mapping property', $f->mFieldArgs ) ) {
-				$mappingType = 'property';
-			} elseif ( array_key_exists( 'mapping cargo table', $f->mFieldArgs ) &&
-				array_key_exists( 'mapping cargo field', $f->mFieldArgs ) ) {
-				$mappingType = 'cargo field';
-			} elseif ( $f->mUseDisplayTitle ) {
-				$f->mPossibleValues = PFValuesUtils::disambiguateLabels( $f->mPossibleValues );
-			}
+		if ( array_key_exists( 'mapping template', $f->mFieldArgs ) ) {
+			$mappingType = 'template';
+		} elseif ( array_key_exists( 'mapping property', $f->mFieldArgs ) ) {
+			$mappingType = 'property';
+		} elseif ( array_key_exists( 'mapping cargo table', $f->mFieldArgs ) &&
+			array_key_exists( 'mapping cargo field', $f->mFieldArgs ) ) {
+			$mappingType = 'cargo field';
+		} elseif ( $f->mUseDisplayTitle ) {
+			$f->mPossibleValues = PFValuesUtils::disambiguateLabels( $f->mPossibleValues );
 		}
 
 		if ( $mappingType !== null && !empty( $f->mPossibleValues ) ) {
@@ -452,7 +484,7 @@ class PFFormField {
 			}
 		}
 
-		if ( $template_name == null || $template_name === '' ) {
+		if ( $template_name === null || $template_name === '' ) {
 			$f->mInputName = $field_name;
 		} elseif ( $template_in_form->allowsMultiple() ) {
 			// 'num' will get replaced by an actual index, either in PHP
@@ -503,7 +535,7 @@ class PFFormField {
 		}
 	}
 
-	function getCurrentValue( $template_instance_query_values, $form_submitted, $source_is_page, $all_instances_printed ) {
+	function getCurrentValue( $template_instance_query_values, $form_submitted, $source_is_page, $all_instances_printed, &$val_modifier = null ) {
 		// Get the value from the request, if
 		// it's there, and if it's not an array.
 		$cur_value = null;
@@ -518,7 +550,7 @@ class PFFormField {
 			if ( isset( $template_instance_query_values[$fieldName] ) && isset( $template_instance_query_values[$fieldNameTag] ) ) {
 				$tag = $template_instance_query_values[$fieldNameTag];
 				if ( !preg_match( '/( |\n)$/', $tag ) ) {
-					$tag = $tag . "\n";
+					$tag .= "\n";
 				}
 				if ( trim( $template_instance_query_values[$fieldName] ) ) {
 					// Don't add the tag if field content has been removed.
@@ -544,6 +576,15 @@ class PFFormField {
 				$field_query_val = $template_instance_query_values[$escaped_field_name];
 			} elseif ( array_key_exists( $field_name, $template_instance_query_values ) ) {
 				$field_query_val = $template_instance_query_values[$field_name];
+			} else {
+				// The next checks are to allow for support for appending/prepending with autoedit.
+				if ( array_key_exists( "$field_name+", $template_instance_query_values ) ) {
+					$field_query_val = $template_instance_query_values["$field_name+"];
+					$val_modifier = '+';
+				} elseif ( array_key_exists( "$field_name-", $template_instance_query_values ) ) {
+					$field_query_val = $template_instance_query_values["$field_name-"];
+					$val_modifier = '-';
+				}
 			}
 
 			if ( $form_submitted && $field_query_val != '' ) {
@@ -555,7 +596,6 @@ class PFFormField {
 				if ( is_array( $field_query_val ) ) {
 					$cur_values = [];
 					if ( $map_field && $this->mPossibleValues !== null ) {
-						$cur_values = [];
 						foreach ( $field_query_val as $key => $val ) {
 							$val = trim( $val );
 							if ( $key === 'is_list' ) {
@@ -596,7 +636,7 @@ class PFFormField {
 				} else {
 					$str = $field_query_val;
 				}
-				return htmlspecialchars( $str, ENT_QUOTES );
+				return str_replace( [ '<', '>' ], [ '&lt;', '&gt;' ], $str );
 
 			}
 		}
@@ -701,10 +741,15 @@ class PFFormField {
 				$value = $index;
 			}
 			$labels[$value] = $value;
+			if ( $this->hasFieldArg( 'mapping cargo value field' ) ) {
+				$valueField = $this->mFieldArgs['mapping cargo value field'];
+			} else {
+				$valueField = '_pageName';
+			}
 			$vals = PFValuesUtils::getValuesForCargoField(
 				$this->mFieldArgs['mapping cargo table'],
 				$this->mFieldArgs['mapping cargo field'],
-				'_pageName="' . $value . '"'
+				$valueField . '="' . $value . '"'
 			);
 			if ( count( $vals ) > 0 ) {
 				$labels[$value] = html_entity_decode( trim( $vals[0] ) );

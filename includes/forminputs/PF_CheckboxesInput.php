@@ -9,7 +9,7 @@
  */
 class PFCheckboxesInput extends PFMultiEnumInput {
 
-	public static function getName() {
+	public static function getName(): string {
 		return 'checkboxes';
 	}
 
@@ -36,7 +36,6 @@ class PFCheckboxesInput extends PFMultiEnumInput {
 	public static function getHTML( $cur_value, $input_name, $is_mandatory, $is_disabled, array $other_args ) {
 		global $wgPageFormsTabIndex, $wgPageFormsFieldNum, $wgPageFormsShowOnSelect;
 
-		$checkboxClass = ( $is_mandatory ) ? 'mandatoryField' : 'createboxInput';
 		$labelClass = 'checkboxLabel';
 		if ( array_key_exists( 'class', $other_args ) ) {
 			$labelClass .= ' ' . $other_args['class'];
@@ -68,17 +67,20 @@ class PFCheckboxesInput extends PFMultiEnumInput {
 			}
 
 			$checkbox_attrs = [
+				'name' => $cur_input_name,
+				'value' => $possible_value,
 				'id' => $input_id,
-				'tabindex' => $wgPageFormsTabIndex,
-				'class' => $checkboxClass,
+				'tabIndex' => $wgPageFormsTabIndex,
+				'label' => 'checkbox'
 			];
 			if ( in_array( $possible_value, $cur_values ) ) {
 				$checkbox_attrs['checked'] = 'checked';
+				$checkbox_attrs['selected'] = true;
 			}
 			if ( $is_disabled ) {
 				$checkbox_attrs['disabled'] = 'disabled';
 			}
-			$checkbox_input = Html::input( $cur_input_name, $possible_value, 'checkbox', $checkbox_attrs );
+			$checkbox_input = new OOUI\CheckboxInputWidget( $checkbox_attrs ) . "<t>";
 
 			// Put a <label> tag around each checkbox, for CSS
 			// purposes as well as to clarify this element.
@@ -135,7 +137,7 @@ class PFCheckboxesInput extends PFMultiEnumInput {
 	 * Returns the HTML code to be included in the output page for this input.
 	 * @return string
 	 */
-	public function getHtmlText() {
+	public function getHtmlText(): string {
 		return self::getHTML(
 			$this->mCurrentValue,
 			$this->mInputName,

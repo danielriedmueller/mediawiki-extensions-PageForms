@@ -8,6 +8,7 @@
 class PFTemplateInForm {
 	private $mTemplateName;
 	private $mLabel;
+	private $mIntro;
 	private $mAddButtonText;
 	private $mDisplay;
 	private $mEventTitleField;
@@ -18,7 +19,7 @@ class PFTemplateInForm {
 	private $mStrictParsing;
 	private $mMinAllowed;
 	private $mMaxAllowed;
-	private $mFields;
+	private $mFields = [];
 	private $mEmbedInTemplate;
 	private $mEmbedInField;
 	private $mPlaceholder;
@@ -37,7 +38,7 @@ class PFTemplateInForm {
 	private $mPregMatchTemplateStr;
 	private $mFullTextInPage;
 	private $mValuesFromPage = [];
-	private $mValuesFromSubmit;
+	private $mValuesFromSubmit = [];
 	private $mNumInstancesFromSubmit = 0;
 	private $mPageCallsThisTemplate = false;
 	private $mInstanceNum = 0;
@@ -47,7 +48,6 @@ class PFTemplateInForm {
 	static function create( $name, $label = null, $allowMultiple = null, $maxAllowed = null, $formFields = null ) {
 		$tif = new PFTemplateInForm();
 		$tif->mTemplateName = str_replace( '_', ' ', $name );
-		$tif->mFields = [];
 		if ( $formFields === null ) {
 			$template = PFTemplate::newFromName( $tif->mTemplateName );
 			$fields = $template->getTemplateFields();
@@ -64,13 +64,21 @@ class PFTemplateInForm {
 	}
 
 	public static function newFromFormTag( $tag_components ) {
+		global $wgPageFormsEmbeddedTemplates;
+
 		$parser = PFUtils::getParser();
 
-		$template_name = str_replace( '_', ' ', trim( $parser->recursiveTagParse( $tag_components[1] ) ) );
 		$tif = new PFTemplateInForm();
-		$tif->mTemplateName = str_replace( '_', ' ', $template_name );
+		$tif->mTemplateName = str_replace( '_', ' ', trim( $parser->recursiveTagParse( $tag_components[1] ) ) );
 
 		$tif->mAddButtonText = wfMessage( 'pf_formedit_addanother' )->text();
+
+		if ( array_key_exists( $tif->mTemplateName, $wgPageFormsEmbeddedTemplates ) ) {
+			list( $tif->mEmbedInTemplate, $tif->mEmbedInField ) =
+				$wgPageFormsEmbeddedTemplates[$tif->mTemplateName];
+			$tif->mPlaceholder = PFFormPrinter::placeholderFormat( $tif->mEmbedInTemplate, $tif->mEmbedInField );
+		}
+
 		// Cycle through the other components.
 		for ( $i = 2; $i < count( $tag_components ); $i++ ) {
 			$component = $tag_components[$i];
@@ -83,6 +91,8 @@ class PFTemplateInForm {
 			if ( count( $sub_components ) == 2 ) {
 				if ( $sub_components[0] == 'label' ) {
 					$tif->mLabel = $parser->recursiveTagParse( $sub_components[1] );
+				} elseif ( $sub_components[0] == 'intro' ) {
+					$tif->mIntro = $sub_components[1];
 				} elseif ( $sub_components[0] == 'minimum instances' ) {
 					$tif->mMinAllowed = $sub_components[1];
 				} elseif ( $sub_components[0] == 'maximum instances' ) {
@@ -143,6 +153,10 @@ class PFTemplateInForm {
 
 	function getLabel() {
 		return $this->mLabel;
+	}
+
+	function getIntro() {
+		return $this->mIntro;
 	}
 
 	function getAddButtonText() {
@@ -272,17 +286,30 @@ class PFTemplateInForm {
 		$this->mFields[] = $form_field;
 	}
 
+	// this makes it possible for += and -= to modify values based on existing values.
+	function changeFieldValues( $field_name, $new_value, $modifier = null ) {
+		$this->mValuesFromPage[$field_name] = $new_value;
+		if ( $modifier !== null && array_key_exists( $field_name . $modifier, $this->mValuesFromPage ) ) {
+			// clean up old values with + or - in them from the array
+			unset( $this->mValuesFromPage[$field_name . $modifier] );
+		}
+	}
+
 	function setFieldValuesFromSubmit() {
 		global $wgRequest;
 
-		$this->mValuesFromSubmit = null;
+		// Reset values for every new instance, if this is a
+		// multiple-instance template.
+		if ( $this->mInstanceNum > 0 ) {
+			$this->mValuesFromSubmit = [];
+		}
 
 		$query_template_name = str_replace( ' ', '_', $this->mTemplateName );
 		// Also replace periods with underlines, since that's what
 		// POST does to strings anyway.
 		$query_template_name = str_replace( '.', '_', $query_template_name );
 		// ...and escape apostrophes.
-			// (Or don't.)
+		//  (Or don't.)
 		// $query_template_name = str_replace( "'", "\'", $query_template_name );
 
 		$allValuesFromSubmit = $wgRequest->getArray( $query_template_name );

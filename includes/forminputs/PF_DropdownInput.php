@@ -8,7 +8,8 @@
  * @ingroup PFFormInput
  */
 class PFDropdownInput extends PFEnumInput {
-	public static function getName() {
+
+	public static function getName(): string {
 		return 'dropdown';
 	}
 
@@ -116,7 +117,7 @@ class PFDropdownInput extends PFEnumInput {
 	 * Returns the HTML code to be included in the output page for this input.
 	 * @return string
 	 */
-	public function getHtmlText() {
+	public function getHtmlText(): string {
 		return self::getHTML(
 			$this->mCurrentValue,
 			$this->mInputName,

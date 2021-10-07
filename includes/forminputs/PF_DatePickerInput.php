@@ -16,6 +16,10 @@ use MediaWiki\Widget\DateInputWidget;
 
 class PFDatePickerInput extends PFFormInput {
 
+	public static function getName(): string {
+		return 'datepicker';
+	}
+
 	/**
 	 * @param string $input_number The number of the input in the form.
 	 * @param string $cur_value The current value of the input field.
@@ -31,18 +35,6 @@ class PFDatePickerInput extends PFFormInput {
 		}
 
 		parent::__construct( $input_number, $cur_value, $input_name, $disabled, $other_args );
-	}
-
-	/**
-	 * Returns the name of the input type this class handles.
-	 *
-	 * This is the name to be used in the field definition for the
-	 * "input type" parameter.
-	 *
-	 * @return string The name of the input type this class handles.
-	 */
-	public static function getName() {
-		return 'datepicker';
 	}
 
 	/**
@@ -95,18 +87,26 @@ class PFDatePickerInput extends PFFormInput {
 	 * the user should be able to input values.
 	 * @return string
 	 */
-	public function getHtmlText() {
-		$options = $this->getOptions();
-		$options = array_merge( $options, [
+	public function getHtmlText(): string {
+		$options = array_merge( $this->getOptions(), [
 			'type' => 'date',
 			'name' => $this->mInputName,
 			'value' => $this->mCurrentValue,
 			'id' => 'input_' . $this->mInputNumber,
-			'classes' => [ 'pfDatePicker' ],
-			'infusable' => true,
+			'classes' => [ 'pfDatePicker', 'pfPicker' ],
+			'infusable' => true
 		] );
 		$widget = new DateInputWidget( $options );
-		return $widget->toString();
+		$text = $widget->toString();
+
+		// We need a wrapper div so that OOUI won't override
+		// any classes added by "show on select".
+		$wrapperClass = 'pfPickerWrapper';
+		if ( isset( $this->mOtherArgs[ 'mandatory' ] ) ) {
+			$wrapperClass .= ' mandatory';
+		}
+
+		return Html::rawElement( 'div', [ 'class' => $wrapperClass ], $text );
 	}
 
 	private function getOptions() {
@@ -128,74 +128,78 @@ class PFDatePickerInput extends PFFormInput {
 		if ( isset( $params[ 'maxlength' ] ) ) {
 			$options[ 'maxLength' ] = $params[ 'maxlength' ];
 		}
-		if ( isset( $params[ 'mandatory' ] ) ) {
-			$options[ 'required' ] = true;
-		}
+		// It would be nice to set this, since it leads to a useful
+		// display (an asterisk), but unfortunately it also causes a
+		// JS error that prevents saving.
+		//if ( isset( $params[ 'mandatory' ] ) ) {
+		//	$options[ 'required' ] = true;
+		//}
 
 		return $options;
 	}
 
 	private function getConvertedFormat() {
-	$oldFormat = $this->mOtherArgs['date format'];
-	$j = 0;
-	for ( $i = 0; $i < strlen( $oldFormat ); $i++ ) {
-		if ( $oldFormat[$i] === "d" && isset( $oldFormat[$i + 1] ) && $oldFormat[$i + 1] !== "d" ) {
-			// If the letter is "d" and next letter is not "d"
-			$newFormat[$j] = "D";
-			$j++;
-		} elseif ( $oldFormat[$i] === "d" && isset( $oldFormat[$i + 1] ) && $oldFormat[$i + 1] === "d" ) {
-			// If the letter is "d" and next letter is "d", which means "dd"
-			$newFormat[$j] = "DD";
-			$j += 2;
-			$i++;
-		} elseif ( $oldFormat[$i] === "d" && !isset( $oldFormat[$i + 1] ) ) {
-			// If the letter is "d" and it is the last letter.
-			$newFormat[$j] = "D";
-		} elseif ( $oldFormat[$i] === "D" && isset( $oldFormat[$i + 1] ) && $oldFormat[$i + 1] !== "D" ) {
-			// If the letter is "D" and next letter is not "D"
-			$newFormat[$j] = "dd";
-			$j += 2;
-		} elseif ( $oldFormat[$i] === "D" && isset( $oldFormat[$i + 1] ) && $oldFormat[$i + 1] === "D" ) {
-			// If the letter is "D" and next letter is "D", which means "DD".
-			// Until now, we don't know a corresponding format, so, let's let at as it is.
-			$newFormat[$j] = "DD";
-			$j += 2;
-			$i++;
-		} elseif ( $oldFormat[$i] === "D" && !isset( $oldFormat[$i + 1] ) ) {
-			// If the letter is "D" and it is the last letter.
-			$newFormat[$j] = "dd";
-		} elseif ( $oldFormat[$i] === "m" && isset( $oldFormat[$i + 1] ) && $oldFormat[$i + 1] !== "m" ) {
-			// If the letter is "m" and next letter is not "m"
-			$newFormat[$j] = "M";
-			$j++;
-		} elseif ( $oldFormat[$i] === "m" && isset( $oldFormat[$i + 1] ) && $oldFormat[$i + 1] === "m" ) {
-			// If the letter is "m" and next letter is "m", which means "mm".
-			$newFormat[$j] = "MM";
-			$j += 2;
-			$i++;
-		} elseif ( $oldFormat[$i] === "m" && !isset( $oldFormat[$i + 1] ) ) {
-			// If the letter is "m" and it is the last letter.
-			$newFormat[$j] = "M";
-		} elseif ( $oldFormat[$i] === "y" && isset( $oldFormat[$i + 1] ) && $oldFormat[$i + 1] !== "y" ) {
-			// If the letter is "y" and next letter is not "y"
-			$newFormat[$j] = "YY";
-			$j += 2;
-		} elseif ( $oldFormat[$i] === "y" && isset( $oldFormat[$i + 1] ) && $oldFormat[$i + 1] === "y" ) {
-			// If the letter is "y" and next letter is "y", which means "yy".
-			$newFormat[$j] = "YYYY";
-			$j += 4;
-			$i++;
-		} elseif ( $oldFormat[$i] === "y" && !isset( $oldFormat[$i + 1] ) ) {
-			// If the letter is "y" and it is the last letter.
-			$newFormat[$j] = "YY";
-		} else {
-			// Any another letters, or special characters.
-			$newFormat[$j] = $oldFormat[$i];
-			$j++;
+		$oldFormat = $this->mOtherArgs['date format'];
+		$j = 0;
+		$newFormat = [];
+		for ( $i = 0; $i < strlen( $oldFormat ); $i++ ) {
+			if ( $oldFormat[$i] === "d" && isset( $oldFormat[$i + 1] ) && $oldFormat[$i + 1] !== "d" ) {
+				// If the letter is "d" and next letter is not "d"
+				$newFormat[$j] = "D";
+				$j++;
+			} elseif ( $oldFormat[$i] === "d" && isset( $oldFormat[$i + 1] ) && $oldFormat[$i + 1] === "d" ) {
+				// If the letter is "d" and next letter is "d", which means "dd"
+				$newFormat[$j] = "DD";
+				$j += 2;
+				$i++;
+			} elseif ( $oldFormat[$i] === "d" && !isset( $oldFormat[$i + 1] ) ) {
+				// If the letter is "d" and it is the last letter.
+				$newFormat[$j] = "D";
+			} elseif ( $oldFormat[$i] === "D" && isset( $oldFormat[$i + 1] ) && $oldFormat[$i + 1] !== "D" ) {
+				// If the letter is "D" and next letter is not "D"
+				$newFormat[$j] = "dd";
+				$j += 2;
+			} elseif ( $oldFormat[$i] === "D" && isset( $oldFormat[$i + 1] ) && $oldFormat[$i + 1] === "D" ) {
+				// If the letter is "D" and next letter is "D", which means "DD".
+				// Until now, we don't know a corresponding format, so, let's let at as it is.
+				$newFormat[$j] = "DD";
+				$j += 2;
+				$i++;
+			} elseif ( $oldFormat[$i] === "D" && !isset( $oldFormat[$i + 1] ) ) {
+				// If the letter is "D" and it is the last letter.
+				$newFormat[$j] = "dd";
+			} elseif ( $oldFormat[$i] === "m" && isset( $oldFormat[$i + 1] ) && $oldFormat[$i + 1] !== "m" ) {
+				// If the letter is "m" and next letter is not "m"
+				$newFormat[$j] = "M";
+				$j++;
+			} elseif ( $oldFormat[$i] === "m" && isset( $oldFormat[$i + 1] ) && $oldFormat[$i + 1] === "m" ) {
+				// If the letter is "m" and next letter is "m", which means "mm".
+				$newFormat[$j] = "MM";
+				$j += 2;
+				$i++;
+			} elseif ( $oldFormat[$i] === "m" && !isset( $oldFormat[$i + 1] ) ) {
+				// If the letter is "m" and it is the last letter.
+				$newFormat[$j] = "M";
+			} elseif ( $oldFormat[$i] === "y" && isset( $oldFormat[$i + 1] ) && $oldFormat[$i + 1] !== "y" ) {
+				// If the letter is "y" and next letter is not "y"
+				$newFormat[$j] = "YY";
+				$j += 2;
+			} elseif ( $oldFormat[$i] === "y" && isset( $oldFormat[$i + 1] ) && $oldFormat[$i + 1] === "y" ) {
+				// If the letter is "y" and next letter is "y", which means "yy".
+				$newFormat[$j] = "YYYY";
+				$j += 4;
+				$i++;
+			} elseif ( $oldFormat[$i] === "y" && !isset( $oldFormat[$i + 1] ) ) {
+				// If the letter is "y" and it is the last letter.
+				$newFormat[$j] = "YY";
+			} else {
+				// Any another letters, or special characters.
+				$newFormat[$j] = $oldFormat[$i];
+				$j++;
+			}
 		}
-	}
-	$newFormat = implode( $newFormat );
-	return $newFormat;
+		$newFormat = implode( $newFormat );
+		return $newFormat;
 	}
 
 	/**
@@ -255,11 +259,6 @@ class PFDatePickerInput extends PFFormInput {
 			$attribs['maxlength'] = $otherArgs['maxlength'];
 		}
 
-		// modify class attribute for mandatory form fields
-		if ( array_key_exists( 'mandatory', $otherArgs ) ) {
-			$attribs['class'] .= ' mandatoryField';
-		}
-
 		// add user class(es) to class attribute of input field
 		if ( array_key_exists( 'class', $otherArgs ) ) {
 			$attribs['class'] .= ' ' . $otherArgs['class'];
@@ -281,7 +280,7 @@ class PFDatePickerInput extends PFFormInput {
 			$attribs['tabindex'] = $tabIndex;
 		}
 
-		$html = Xml::element( 'input', $attribs );
+		$html = Html::element( 'input', $attribs );
 
 		return $html;
 	}

@@ -9,25 +9,15 @@
 ( function ( $, mw ) {
 
 	'use strict';
+	function sendData( $jtrigger ){
+		var $jautoedit = $jtrigger.closest( '.autoedit' );
+		var $jresult = $jautoedit.find( '.autoedit-result' );
+		var reload = $jtrigger.hasClass( 'reload' );
 
-	var autoEditHandler = function handleAutoEdit(){
+		$jtrigger.attr( 'class', 'autoedit-trigger autoedit-trigger-wait' );
+		$jresult.attr( 'class', 'autoedit-result autoedit-result-wait' );
 
-		if ( mw.config.get( 'wgUserName' ) === null &&
-			! confirm( mw.msg( 'pf_autoedit_anoneditwarning' ) ) ) {
-
-			return;
-		}
-
-		var jtrigger = jQuery( this );
-		var jautoedit = jtrigger.closest( '.autoedit' );
-		var jresult = jautoedit.find( '.autoedit-result' );
-
-		var reload = jtrigger.hasClass( 'reload' );
-
-		jtrigger.attr( 'class', 'autoedit-trigger autoedit-trigger-wait' );
-		jresult.attr( 'class', 'autoedit-result autoedit-result-wait' );
-
-		jresult.text( mw.msg( 'pf-autoedit-wait' ) );
+		$jresult.text( mw.msg( 'pf-autoedit-wait' ) );
 
 
 		// data array to be sent to the server
@@ -37,7 +27,7 @@
 		};
 
 		// add form values to the data
-		data.query =  jautoedit.find( 'form.autoedit-data' ).serialize();
+		data.query = $jautoedit.find( 'form.autoedit-data' ).serialize();
 
 		$.ajax( {
 
@@ -46,7 +36,7 @@
 			data:     data, // data to be sent to the server
 			dataType: 'json', // type of data expected back from the server
 			success:  function ( result ){
-				jresult.empty().append( result.responseText );
+				$jresult.empty().append( result.responseText );
 
 				if ( result.status === 200 ) {
 
@@ -54,11 +44,11 @@
 						window.location.reload();
 					}
 
-					jresult.removeClass( 'autoedit-result-wait' ).addClass( 'autoedit-result-ok' );
-					jtrigger.removeClass( 'autoedit-trigger-wait' ).addClass( 'autoedit-trigger-ok' );
+					$jresult.removeClass( 'autoedit-result-wait' ).addClass( 'autoedit-result-ok' );
+					$jtrigger.removeClass( 'autoedit-trigger-wait' ).addClass( 'autoedit-trigger-ok' );
 				} else {
-					jresult.removeClass( 'autoedit-result-wait' ).addClass( 'autoedit-result-error' );
-					jtrigger.removeClass( 'autoedit-trigger-wait' ).addClass( 'autoedit-trigger-error' );
+					$jresult.removeClass( 'autoedit-result-wait' ).addClass( 'autoedit-result-error' );
+					$jtrigger.removeClass( 'autoedit-trigger-wait' ).addClass( 'autoedit-trigger-error' );
 				}
 			}, // function to be called if the request succeeds
 			error:  function ( jqXHR, textStatus, errorThrown ) {
@@ -69,11 +59,34 @@
 					text += ' ' + result.errors[i].message;
 				}
 
-				jresult.empty().append( text );
-				jresult.removeClass( 'autoedit-result-wait' ).addClass( 'autoedit-result-error' );
-				jtrigger.removeClass( 'autoedit-trigger-wait' ).addClass( 'autoedit-trigger-error' );
+				$jresult.empty().append( text );
+				$jresult.removeClass( 'autoedit-result-wait' ).addClass( 'autoedit-result-error' );
+				$jtrigger.removeClass( 'autoedit-trigger-wait' ).addClass( 'autoedit-trigger-error' );
 			} // function to be called if the request fails
 		} );
+	}
+
+	var autoEditHandler = function handleAutoEdit(){
+
+		if ( mw.config.get( 'wgUserName' ) === null &&
+			! confirm( mw.msg( 'pf_autoedit_anoneditwarning' ) ) ) {
+			return;
+		}
+
+		var $jtrigger = jQuery( this );
+		var $jautoedit = $jtrigger.closest( '.autoedit' );
+		var $jeditdata = $jautoedit.find( 'form.autoedit-data' );
+		var targetpage = $jeditdata.find( 'input[name=target]' ).val();
+		var confirmEdit = $jeditdata.hasClass( 'confirm-edit' );
+		if ( confirmEdit ) {
+			OO.ui.confirm( mw.msg( 'pf_autoedit_confirm', targetpage ) ).done( confirmed => {
+				if ( confirmed ) {
+					sendData( $jtrigger );
+				}
+			})
+		} else {
+			sendData( $jtrigger );
+		}
 	};
 
 	jQuery( document ).ready( function ( $ ) {

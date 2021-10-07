@@ -10,7 +10,8 @@ use MediaWiki\MediaWikiServices;
  * @ingroup PFFormInput
  */
 class PFComboBoxInput extends PFFormInput {
-	public static function getName() {
+
+	public static function getName(): string {
 		return 'combobox';
 	}
 
@@ -98,7 +99,7 @@ class PFComboBoxInput extends PFFormInput {
 			'tabindex' => $wgPageFormsTabIndex,
 			'autocompletesettings' => $autocompleteSettings,
 			'value' => $cur_value,
-			'data-size' => $size * 6 . 'px',
+			'data-size' => $size * 6,
 			'style' => 'width:' . $size * 6 . 'px',
 			'disabled' => $is_disabled
 		];
@@ -116,9 +117,6 @@ class PFComboBoxInput extends PFFormInput {
 		}
 		if ( $remoteDataType !== null ) {
 			$inputAttrs['autocompletedatatype'] = $remoteDataType;
-		}
-		if ( array_key_exists( 'namespace', $other_args ) ) {
-			$inputAttrs['data-namespace'] = $other_args['namespace'];
 		}
 
 		$innerDropdown = '';
@@ -180,7 +178,7 @@ class PFComboBoxInput extends PFFormInput {
 			$spanClass .= ' mandatoryFieldSpan';
 		}
 
-		$text = Html::rawElement( 'span', [ 'class' => $spanClass ], $inputText );
+		$text = Html::rawElement( 'span', [ 'class' => $spanClass, 'data-input-type' => 'combobox' ], $inputText );
 		return $text;
 	}
 
@@ -219,7 +217,7 @@ class PFComboBoxInput extends PFFormInput {
 	 * Returns the HTML code to be included in the output page for this input.
 	 * @return string
 	 */
-	public function getHtmlText() {
+	public function getHtmlText(): string {
 		return self::getHTML(
 			$this->mCurrentValue,
 			$this->mInputName,
@@ -227,5 +225,9 @@ class PFComboBoxInput extends PFFormInput {
 			$this->mIsDisabled,
 			$this->mOtherArgs
 		);
+	}
+
+	public function getResourceModuleNames() {
+		return [ 'ext.pageforms.ooui.combobox' ];
 	}
 }

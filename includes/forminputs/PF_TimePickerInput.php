@@ -11,6 +11,10 @@
  */
 class PFTimePickerInput extends PFFormInput {
 
+	public static function getName(): string {
+		return 'timepicker';
+	}
+
 	/**
 	 * @param string $input_number The number of the input in the form.
 	 * @param string $cur_value The current value of the input field.
@@ -26,18 +30,6 @@ class PFTimePickerInput extends PFFormInput {
 		parent::__construct( $input_number, $cur_value, $input_name, $disabled, $other_args );
 
 		$this->addJsInitFunctionData( 'PF_TP_init', $this->setupJsInitAttribs() );
-	}
-
-	/**
-	 * Returns the name of the input type this class handles: menuselect.
-	 *
-	 * This is the name to be used in the field definition for the "input type"
-	 * parameter.
-	 *
-	 * @return string The name of the input type this class handles.
-	 */
-	public static function getName() {
-		return 'timepicker';
 	}
 
 	/**
@@ -109,7 +101,7 @@ class PFTimePickerInput extends PFFormInput {
 	 * should be able to input values.
 	 * @return string
 	 */
-	public function getHtmlText() {
+	public function getHtmlText(): string {
 		// create visible input field (for display) and invisible field (for data)
 		$html = PFDatePickerInput::genericTextHTML( $this->mCurrentValue, $this->mInputName, $this->mIsDisabled, $this->mOtherArgs, 'input_' . $this->mInputNumber );
 

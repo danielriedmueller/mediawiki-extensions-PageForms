@@ -8,7 +8,8 @@
  * @ingroup PFFormInput
  */
 class PFTextInput extends PFFormInput {
-	public static function getName() {
+
+	public static function getName(): string {
 		return 'text';
 	}
 
@@ -144,30 +145,7 @@ class PFTextInput extends PFFormInput {
 
 		if ( $wgPageFormsSimpleUpload ) {
 			$text = "\n" . '<img class="loading" style="display:none;" src="' . $wgPageFormsScriptPath . '/skins/loading.gif"/>' . "\n";
-			$text .= Html::input( '',
-				wfMessage( 'pf-simpleupload' )->escaped(),
-				'button',
-				[
-					'class' => 'simpleupload_btn',
-					'data-id' => $input_id
-				]
-			) . "\n";
-			$text .= Html::input( '',
-				wfMessage( 'htmlform-cloner-delete' )->escaped(),
-				'button',
-				[
-					'class' => 'simpleupload_rmv_btn',
-					'style' => 'display: none;',
-					'data-id' => $input_id
-				]
-			) . "\n";
-			$text .= Html::input( '', '', 'file',
-				[
-					'class' => 'simpleupload',
-					'style' => 'width: 0;height: 0;overflow: hidden;',
-					'data-id' => $input_id
-				]
-			) . "\n";
+			$text .= Html::rawElement( 'span', [ 'class' => 'simpleUploadInterface' ], null );
 
 			return $text;
 		}
@@ -275,6 +253,9 @@ class PFTextInput extends PFFormInput {
 		if ( array_key_exists( 'placeholder', $other_args ) ) {
 			$inputAttrs['placeholder'] = $other_args['placeholder'];
 		}
+		if ( array_key_exists( 'autocapitalize', $other_args ) ) {
+			$inputAttrs['autocapitalize'] = $other_args['autocapitalize'];
+		}
 		if ( array_key_exists( 'feeds to map', $other_args ) ) {
 			global $wgPageFormsMapsWithFeeders;
 			$targetMapName = $other_args['feeds to map'];
@@ -311,7 +292,7 @@ class PFTextInput extends PFFormInput {
 		if ( array_key_exists( 'unique', $other_args ) ) {
 			$spanClass .= ' uniqueFieldSpan';
 		}
-		$text = Html::rawElement( 'span', [ 'class' => $spanClass ], $text );
+		$text = Html::rawElement( 'span', [ 'class' => $spanClass, 'data-input-type' => 'text' ], $text );
 		return $text;
 	}
 
@@ -349,7 +330,7 @@ class PFTextInput extends PFFormInput {
 	 * Returns the HTML code to be included in the output page for this input.
 	 * @return string
 	 */
-	public function getHtmlText() {
+	public function getHtmlText(): string {
 		return self::getHTML(
 			$this->mCurrentValue,
 			$this->mInputName,

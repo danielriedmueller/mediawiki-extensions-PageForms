@@ -18,8 +18,8 @@
 
 
 	$( function () {
-		var allowCloseWindow,
-			$allInputs = $( 'form#pfForm textarea, form#pfForm input[type=text], #wpSummary' );
+		var allowCloseWindow, origText, newText, origValues = {},
+			$allInputs = $( 'form#pfForm textarea, form#pfForm input[type=text], form#pfForm input:not([type]), form#pfForm select, #wpSummary' );
 
 		// Check if EditWarning is enabled and if we need it.
 		if ( !mw.user.options.get( 'useeditwarning' ) ) {
@@ -29,7 +29,12 @@
 		// Save the original value of the inputs.
 		$allInputs.each( function ( index, element ) {
 			var $element = $( element );
-			$element.data( 'origtext', $element.textSelection( 'getContents' ) );
+			if ( $element.hasClass( 'pfComboBox' ) ) {
+				// data() can't be used for combobox inputs, probably because they use OOUI.
+				origValues[element.id] = $element.textSelection( 'getContents' );
+			} else {
+				$element.data( 'origtext', $element.textSelection( 'getContents' ) );
+			}
 		});
 
 		allowCloseWindow = mw.confirmCloseWindow( {
@@ -40,7 +45,21 @@
 				// We use .textSelection, because editors might not have updated the form yet.
 				$allInputs.each( function( index, element ) {
 					var $element = $( element );
-					if ( $element.data( 'origtext' ) !== $element.textSelection( 'getContents' ) ) {
+
+					// The setting of both origText and
+					// newText have to be different for the
+					// combobox input, due to its use of
+					// OOUI.
+					if ( $element.hasClass( 'pfComboBox' ) ) {
+						origText = origValues[element.id];
+						newText = $('#' + element.id).val();
+					} else {
+						origText = $element.data( 'origtext' );
+						// For some reason, the addition of a blank string is sometimes
+						// necessary, to get the type right.
+						newText = $element.textSelection( 'getContents' ) + '';
+					}
+					if ( origText != newText ) {
 						changesWereMade = true;
 						return false;
 					}
@@ -49,7 +68,6 @@
 				return changesWereMade;
 			},
 
-			message: mw.msg( 'editwarning-warning' ),
 			namespace: 'editwarning'
 		} );
 

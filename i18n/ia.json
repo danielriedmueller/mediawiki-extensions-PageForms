@@ -1,6 +1,7 @@
 {
 	"@metadata": {
 		"authors": [
+			"DannyS712",
 			"Karmwiki",
 			"McDutchie"
 		]
@@ -32,7 +33,7 @@
 	"pf_createtemplate_standardformat": "Tabella",
 	"pf_createtemplate_infoboxformat": "Quadro de information lateral",
 	"pf_createtemplate_addfield": "Adder campo",
-	"pf_createtemplate_deletefield": "Deler",
+	"pf_createtemplate_deletefield": "Deler iste campo",
 	"forms": "Formularios",
 	"pf_forms_docu": "Le sequente formularios existe in le wiki.",
 	"pf_forminputs_mandatory": "Es necessari mitter un valor pro iste entrata",
@@ -79,7 +80,7 @@
 	"pf_createform_inputtype": "Typo de entrata:",
 	"pf_createform_inputtypedefault": "(predefinition)",
 	"pf_createform_formlabel": "Etiquetta de formulario:",
-	"pf_createform_hidden": "Celate",
+	"pf_createform_hidden": "(Celate)",
 	"pf_createform_removetemplate": "Remover patrono",
 	"pf_createform_addtemplate": "Adder patrono:",
 	"pf_createform_atend": "Al fin",
@@ -165,9 +166,9 @@
 	"pf_blank_namespace": "Principal",
 	"right-viewedittab": "Vider le scheda \"{{int:edit}}\" pro paginas modificabile per formulario",
 	"right-editrestrictedfields": "Modificar le campos restringite de formularios",
-	"right-createclass": "Crear nove classes semantic",
+	"right-createclass": "Crear nove \"classes\" de paginas",
 	"right-multipageedit": "Modificar plure paginas usante un folio de calculo",
-	"action-createclass": "crear nove classes semantic",
+	"action-createclass": "crear nove \"classes\" de paginas",
 	"action-editrestrictedfields": "modificar le campos restringite de formularios",
 	"action-viewedittab": "vider le scheda \"{{int:edit}}\" pro paginas modificabile per formulario",
 	"action-multipageedit": "modificar plure paginas usante un folio de calculo",
@@ -175,7 +176,7 @@
 	"pf-datepicker-prev": "Precedente",
 	"pf-datepicker-next": "Sequente",
 	"pf-datepicker-today": "Hodie",
-	"pf-datepicker-dateformat": "Le specification del formato del data. Vide le [https://www.mediawiki.org/wiki/Extension:Page_Forms/Input_types/Datepicker#Parameters documentation in linea] pro plus information.",
+	"pf-datepicker-dateformat": "Le specification del formato del data. Vide le [$1 documentation in linea] pro plus information.",
 	"pf-datepicker-weekstart": "Le prime die del septimana (0 - dominica, 1 - lunedi, ...).",
 	"pf-datepicker-firstdate": "Le prime data que pote esser seligite (in formato aaaa/mm/dd).",
 	"pf-datepicker-lastdate": "Le ultime data que pote esser seligite (in formato aaaa/mm/dd).",

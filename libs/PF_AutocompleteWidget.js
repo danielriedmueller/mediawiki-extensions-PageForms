@@ -8,12 +8,18 @@
  * @constructor
  * @param {Object} config Configuration options
  * @author Yaron Koren
+ * @author Sahaj Khandelwal
+ * @author Yash Varshney
  */
 
 pf.AutocompleteWidget = function( config ) {
 	// Parent constructor
 	var textInputConfig = {
 		name: 'page_name',
+		// The following classes are used here:
+		// * pfPageNameWithNamespace
+		// * pfPageNameWithoutNamespace
+		classes: config.classes,
 		// This turns off the local, browser-based autocompletion,
 		// which would normally suggest values that the user has
 		// typed before on that computer.
@@ -31,7 +37,7 @@ pf.AutocompleteWidget = function( config ) {
 	OO.ui.TextInputWidget.call( this, textInputConfig );
 	// Mixin constructors
 	if ( config.autocompletedatatype !== undefined ) {
-		OO.ui.mixin.LookupElement.call( this, {} );
+		OO.ui.mixin.LookupElement.call( this, { highlightFirst: false } );
 	}
 
 	this.config = config;
@@ -97,7 +103,7 @@ pf.AutocompleteWidget.prototype.getLookupMenuOptionsFromData = function ( data )
 		return [
 			new OO.ui.MenuOptionWidget( {
 				disabled: true,
-				label: mw.message( 'pf-select2-no-matches' ).text()
+				label: mw.message( 'pf-autocomplete-no-matches' ).text()
 			} )
 		];
 	}

@@ -10,7 +10,8 @@ use MediaWiki\MediaWikiServices;
  * @ingroup PFFormInput
  */
 class PFTokensInput extends PFFormInput {
-	public static function getName() {
+
+	public static function getName(): string {
 		return 'tokens';
 	}
 
@@ -105,6 +106,11 @@ class PFTokensInput extends PFFormInput {
 			if ( array_key_exists( 'description', $other_args ) ) {
 				$wgPageFormsEDSettings[$name]['description'] = $other_args['description'];
 			}
+			if ( array_key_exists( 'delimiter', $other_args ) ) {
+				$delimiter = $other_args['delimiter'];
+			} else {
+				$delimiter = ',';
+			}
 		} else {
 			list( $autocompleteSettings, $remoteDataType, $delimiter ) = PFValuesUtils::setAutocompleteValues( $other_args, true );
 		}
@@ -162,9 +168,7 @@ class PFTokensInput extends PFFormInput {
 		if ( array_key_exists( 'max values', $other_args ) ) {
 			$inputAttrs['maxvalues'] = $other_args['max values'];
 		}
-		if ( array_key_exists( 'namespace', $other_args ) ) {
-			$inputAttrs['data-namespace'] = $other_args['namespace'];
-		}
+
 		// This code adds predefined tokens in the form of <options>
 
 		$cur_values = PFValuesUtils::getValuesArray( $cur_value, $delimiter );
@@ -200,17 +204,15 @@ class PFTokensInput extends PFFormInput {
 			$optionsText .= Html::element( 'option', $optionAttrs, $optionLabel );
 		}
 		foreach ( $cur_values as $current_value ) {
-
 			if ( !in_array( $current_value, $possible_values ) && $current_value !== '' ) {
 				$optionAttrs = [ 'value' => $current_value ];
 				$optionAttrs['selected'] = 'selected';
 				$optionLabel = $current_value;
 				$optionsText .= Html::element( 'option', $optionAttrs, $optionLabel );
 			}
-
 		}
 
-		$text = "\n\t" . Html::rawElement( 'select',  $inputAttrs, $optionsText ) . "\n";
+		$text = "\n\t" . Html::rawElement( 'select', $inputAttrs, $optionsText ) . "\n";
 		$text .= Html::hidden( $input_name . '[is_list]', 1 );
 
 		if ( array_key_exists( 'uploadable', $other_args ) && $other_args['uploadable'] == true ) {
@@ -278,7 +280,7 @@ class PFTokensInput extends PFFormInput {
 	 * Returns the HTML code to be included in the output page for this input.
 	 * @return string
 	 */
-	public function getHtmlText() {
+	public function getHtmlText(): string {
 		return self::getHTML(
 			$this->mCurrentValue,
 			$this->mInputName,

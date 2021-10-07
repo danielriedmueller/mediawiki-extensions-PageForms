@@ -12,13 +12,14 @@ class PFRadioButtonInputTest extends MediaWikiTestCase {
 		$append = null, $disabled = null
 	) {
 		return "\t" . sprintf(
-			'<label class="radioButtonItem%s" for="input_\d+">'
-			. '<input name="TestTemplate123\[%s\]" type="radio" value="%s" %s'
-			. 'id="input_\d+" tabindex="\d+"%s%s /> %s</label>',
-			( $class !== null ? " $class" : '' ), $name, $value,
-			( $checked !== null ? 'checked="' . $checked . '" ' : '' ),
+			'<label class="radioButtonItem%s">'
+			. '<input id="input_\d+" tabindex="\d+"%s%s%s type="radio" value="%s" '
+			. 'name="TestTemplate123\[%s\]"/>&nbsp;%s</label>',
+			( $class !== null ? " $class" : '' ),
 			( $append !== null ? " $append" : '' ),
-			( $disabled !== null ? ' disabled="1"' : '' ),
+			( $disabled !== null ? ' disabled=""' : '' ),
+			( $checked !== null ? ' checked=""' : '' ),
+			$value, $name,
 			( $label !== null ? $label : $value )
 		) . "\n";
 	}
@@ -357,8 +358,9 @@ class PFRadioButtonInputTest extends MediaWikiTestCase {
 				$form_definition = "{{{for template|TestTemplate123}}}\n{$setup['form_definition']}\n{{{end template}}}\n{{{standard input|save}}}";
 				list( $form_text, $page_text, $form_page_title, $generated_page_name )
 					= $wgPageFormsFormPrinter->formHTML(
-					$form_definition, true, false, null, null,
-						'TestStringForFormPageTitle', null
+						$form_definition, true, false, null, null,
+						'TestStringForFormPageTitle', null,
+						false, false, false, [], self::getTestUser()->getUser()
 					);
 			} else {
 				$this->markTestSkipped( "No form to test!" );

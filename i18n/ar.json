@@ -1,6 +1,7 @@
 {
 	"@metadata": {
 		"authors": [
+			"DannyS712",
 			"Meno25",
 			"OsamaK",
 			"Tala Ali",
@@ -258,10 +259,10 @@
 	"action-viewedittab": "عرض علامة التبويب \"{{int:edit}}\" للصفحات القابلة للتعديل بواسطة النموذج",
 	"action-multipageedit": "تحرير صفحات متعددة باستخدام جدول بيانات",
 	"tooltip-ca-formedit": "عدل هذه الصفحة بنموذج",
-	"pf-select2-no-matches": "لا توجد مطابقات",
-	"pf-select2-searching": "جارٍ البحث...",
-	"pf-select2-input-too-short": "الرجاء إدخال $1 حرف أو أكثر",
-	"pf-select2-selection-too-big": "لا يمكن لهذا الحقل حمل أكثر من {{PLURAL:$1|قيمة}}.",
+	"pf-autocomplete-no-matches": "لا توجد مطابقات",
+	"pf-autocomplete-searching": "جارٍ البحث...",
+	"pf-autocomplete-input-too-short": "الرجاء إدخال $1 حرف أو أكثر",
+	"pf-autocomplete-selection-too-big": "لا يمكن لهذا الحقل حمل أكثر من {{PLURAL:$1|قيمة}}.",
 	"pf-maps-enteraddress": "أدخل العنوان هنا",
 	"pf-maps-lookupcoordinates": "حساب الإحداثيات باستخدام العنوان",
 	"pf-adminlinks-datastructure": "هيكل البيانات",
@@ -269,7 +270,7 @@
 	"pf-datepicker-prev": "السابق",
 	"pf-datepicker-next": "التالي",
 	"pf-datepicker-today": "اليوم",
-	"pf-datepicker-dateformat": "سلسلة صيغة التاريخ، راجع [https://www.mediawiki.org/wiki/Extension:Page_Forms/Input_types/Datepicker#Parameters التوثيق على الإنترنت] لمزيد من المعلومات.",
+	"pf-datepicker-dateformat": "سلسلة صيغة التاريخ، راجع [$1 التوثيق على الإنترنت] لمزيد من المعلومات.",
 	"pf-datepicker-weekstart": "اليوم الأول من الأسبوع (0: الأحد ، 1: الاثنين، ...).",
 	"pf-datepicker-firstdate": "التاريخ الأول الذي يمكن اختياره (بتنسيق سسسس/شش/يي).",
 	"pf-datepicker-lastdate": "التاريخ الأخير الذي يمكن اختياره (بتنسيق سسسس/شش/يي).",

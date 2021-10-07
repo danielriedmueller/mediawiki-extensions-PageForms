@@ -20,14 +20,14 @@ class PFPageSchemas extends PSExtensionHandler {
 	 * Creates an object to hold form-wide information, based on an XML
 	 * object from the Page Schemas extension.
 	 * @param string $tagName
-	 * @param string $xml
+	 * @param SimpleXMLElement $xml
 	 * @return string[]|null
 	 */
 	public static function createPageSchemasObject( $tagName, $xml ) {
 		$pfarray = [];
 
 		if ( $tagName == "standardInputs" ) {
-			foreach ( $xml->children() as $tag => $child ) {
+			foreach ( $xml->children() as $_ => $child ) {
 				foreach ( $child->children() as $tag => $formelem ) {
 					if ( $tag == $tagName ) {
 						foreach ( $formelem->attributes() as $attr => $name ) {
@@ -44,8 +44,8 @@ class PFPageSchemas extends PSExtensionHandler {
 				if ( $tag == $tagName ) {
 					$formName = (string)$child->attributes()->name;
 					$pfarray['name'] = $formName;
-					foreach ( $child->children() as $tag => $formelem ) {
-						$pfarray[$tag] = (string)$formelem;
+					foreach ( $child->children() as $childTag => $formelem ) {
+						$pfarray[$childTag] = (string)$formelem;
 					}
 					return $pfarray;
 				}
@@ -54,8 +54,8 @@ class PFPageSchemas extends PSExtensionHandler {
 		if ( $tagName == "pageforms_TemplateDetails" ) {
 			foreach ( $xml->children() as $tag => $child ) {
 				if ( $tag == $tagName ) {
-					foreach ( $child->children() as $tag => $formelem ) {
-						$pfarray[$tag] = (string)$formelem;
+					foreach ( $child->children() as $childTag => $formelem ) {
+						$pfarray[$childTag] = (string)$formelem;
 					}
 					return $pfarray;
 				}
@@ -98,7 +98,7 @@ class PFPageSchemas extends PSExtensionHandler {
 
 		$formName = null;
 		$xml = '';
-		$isStandardInputsOpen = false;
+		$includeFreeText = false;
 		foreach ( $wgRequest->getValues() as $var => $val ) {
 			$val = str_replace( [ '<', '>' ], [ '&lt;', '&gt;' ], $val );
 			if ( $var == 'pf_form_name' ) {
@@ -116,48 +116,16 @@ class PFPageSchemas extends PSExtensionHandler {
 				if ( !empty( $val ) ) {
 					$xml .= '<EditTitle>' . $val . '</EditTitle>';
 				}
-			} elseif ( $var == 'pf_fi_free_text_label' ) {
-				$isStandardInputsOpen = true;
-				$xml .= '<standardInputs ';
+			} elseif ( $var == 'pf_fi_free_text' && !empty( $val ) ) {
+				$includeFreeText = true;
+				$xml .= '<standardInputs inputFreeText="1" ';
+			} elseif ( $includeFreeText && $var == 'pf_fi_free_text_label' ) {
 				if ( !empty( $val ) ) {
 					$xml .= 'freeTextLabel="' . Xml::escapeTagsOnly( $val ) . '" ';
 				}
-			} /* Options */ elseif ( $var == 'pf_fi_free_text' ) {
-				if ( !empty( $val ) ) {
-					$xml .= 'inputFreeText="' . $val . '" ';
-				}
-			} elseif ( $var == 'pf_fi_summary' ) {
-				if ( !empty( $val ) ) {
-					$xml .= 'inputSummary="' . $val . '" ';
-				}
-			} elseif ( $var == 'pf_fi_minor_edit' ) {
-				if ( !empty( $val ) ) {
-					$xml .= 'inputMinorEdit="' . $val . '" ';
-				}
-			} elseif ( $var == 'pf_fi_watch' ) {
-				if ( !empty( $val ) ) {
-					$xml .= 'inputWatch="' . $val . '" ';
-				}
-			} elseif ( $var == 'pf_fi_save' ) {
-				if ( !empty( $val ) ) {
-					$xml .= 'inputSave="' . $val . '" ';
-				}
-			} elseif ( $var == 'pf_fi_preview' ) {
-				if ( !empty( $val ) ) {
-					$xml .= 'inputPreview="' . $val . '" ';
-				}
-			} elseif ( $var == 'pf_fi_changes' ) {
-				if ( !empty( $val ) ) {
-					$xml .= 'inputChanges="' . $val . '" ';
-				}
-			} elseif ( $var == 'pf_fi_cancel' ) {
-				if ( !empty( $val ) ) {
-					$xml .= 'inputCancel="' . $val . '"';
-				}
 			}
 		}
-		if ( $isStandardInputsOpen ) {
-			$isStandardInputsOpen = false;
+		if ( $includeFreeText ) {
 			$xml .= ' />';
 		}
 		$xml = '<pageforms_Form name="' . $formName . '" >' . $xml;
@@ -174,15 +142,16 @@ class PFPageSchemas extends PSExtensionHandler {
 
 		$xmlPerTemplate = [];
 		$templateNum = -1;
+		$xml = '';
 		foreach ( $wgRequest->getValues() as $var => $val ) {
 			$val = str_replace( [ '<', '>' ], [ '&lt;', '&gt;' ], $val );
-			if ( substr( $var, 0, 18 ) == 'pf_template_label_' ) {
+			if ( substr( $var, 0, 18 ) === 'pf_template_label_' ) {
 				$templateNum = substr( $var, 18 );
 				$xml = '<pageforms_TemplateDetails>';
 				if ( !empty( $val ) ) {
 					$xml .= "<Label>$val</Label>";
 				}
-			} elseif ( substr( $var, 0, 23 ) == 'pf_template_addanother_' ) {
+			} elseif ( substr( $var, 0, 23 ) === 'pf_template_addanother_' ) {
 				if ( !empty( $val ) ) {
 					$xml .= "<AddAnotherText>$val</AddAnotherText>";
 				}
@@ -202,29 +171,30 @@ class PFPageSchemas extends PSExtensionHandler {
 
 		$xmlPerField = [];
 		$fieldNum = -1;
+		$xml = '';
 		foreach ( $wgRequest->getValues() as $var => $val ) {
 			$val = str_replace( [ '<', '>' ], [ '&lt;', '&gt;' ], $val );
-			if ( substr( $var, 0, 14 ) == 'pf_input_type_' ) {
+			if ( substr( $var, 0, 14 ) === 'pf_input_type_' ) {
 				$fieldNum = substr( $var, 14 );
 				$xml = '<pageforms_FormInput>';
 				if ( !empty( $val ) ) {
 					$xml .= '<InputType>' . $val . '</InputType>';
 				}
-			} elseif ( substr( $var, 0, 14 ) == 'pf_key_values_' ) {
+			} elseif ( substr( $var, 0, 14 ) === 'pf_key_values_' ) {
 				$xml .= self::createFormInputXMLFromForm( $val );
-			} elseif ( substr( $var, 0, 14 ) == 'pf_input_befo_' ) {
+			} elseif ( substr( $var, 0, 14 ) === 'pf_input_befo_' ) {
 				if ( $val !== '' ) {
 					$xml .= '<TextBeforeField>' . $val . '</TextBeforeField>';
 				}
-			} elseif ( substr( $var, 0, 14 ) == 'pf_input_desc_' ) {
+			} elseif ( substr( $var, 0, 14 ) === 'pf_input_desc_' ) {
 				if ( $val !== '' ) {
 					$xml .= '<Description>' . $val . '</Description>';
 				}
-			} elseif ( substr( $var, 0, 18 ) == 'pf_input_desctool_' ) {
+			} elseif ( substr( $var, 0, 18 ) === 'pf_input_desctool_' ) {
 				if ( $val !== '' ) {
 					$xml .= '<DescriptionTooltipMode>' . $val . '</DescriptionTooltipMode>';
 				}
-			} elseif ( substr( $var, 0, 16 ) == 'pf_input_finish_' ) {
+			} elseif ( substr( $var, 0, 16 ) === 'pf_input_finish_' ) {
 				// This is a hack.
 				$xml .= '</pageforms_FormInput>';
 				$xmlPerField[$fieldNum] = $xml;
@@ -309,8 +279,9 @@ class PFPageSchemas extends PSExtensionHandler {
 		// Inputs
 		if ( $pageSchemaObj !== null ) {
 			$standardInputs = $pageSchemaObj->getObject( 'standardInputs' );
+			$includeFreeText = isset( $standardInputs['inputFreeText'] ) ? $standardInputs['inputFreeText'] : false;
 		} else {
-			$standardInputs = [];
+			$includeFreeText = true;
 		}
 
 		$freeTextLabel = html_entity_decode( PageSchemas::getValueFromObject( $form_array, 'freeTextLabel' ) );
@@ -331,52 +302,14 @@ class PFPageSchemas extends PSExtensionHandler {
 		$text .= "\t<p>" . wfMessage( 'pf-pageschemas-createtitle' )->escaped() . ' ' . Html::input( 'pf_create_title', $createTitle, 'text', [ 'size' => 25 ] ) . "</p>\n";
 		$text .= "\t<p id=\"pf-edit-title\">" . wfMessage( 'pf-pageschemas-edittitle' )->escaped() . ' ' . Html::input( 'pf_edit_title', $editTitle, 'text', [ 'size' => 25 ] ) . "</p>\n";
 
+		// This checkbox went from a default of false to true in PF 5.2.
+		$text .= '<p>';
+		$text .= Html::input( 'pf_fi_free_text', '1', 'checkbox', [ 'id' => 'pf_fi_free_text', 'checked' => $includeFreeText ] );
+		$text .= Html::rawElement( 'label', [ 'for' => 'pf_fi_free_text' ], 'Include free text input' );
+		$text .= "</p>";
+
 		$text .= "Free text label: " . Html::input( 'pf_fi_free_text_label', ( ( empty( $freeTextLabel ) ) ? wfMessage( 'pf_form_freetextlabel' )->inContentLanguage()->text() : $freeTextLabel ), 'text' ) . "</p><p>";
 
-		$text .= "<p>Define form buttons and inputs (all will be enabled if none are selected): &nbsp;</p><p>";
-
-		// Free text
-		$text .= '<span>';
-		$text .= Html::input( 'pf_fi_free_text', '1', 'checkbox', [ 'id' => 'pf_fi_free_text', 'checked' => ( isset( $standardInputs['inputFreeText'] ) ) ? $standardInputs['inputFreeText'] : null ] );
-		$text .= Html::rawElement( 'label', [ 'for' => 'pf_fi_free_text' ], 'Free text input' );
-		$text .= "&nbsp;</span>";
-		// Summary
-		$text .= '<span>';
-		$text .= Html::input( 'pf_fi_summary', '1', 'checkbox', [ 'id' => 'pf_fi_summary', 'checked' => ( isset( $standardInputs['inputSummary'] ) ) ? $standardInputs['inputSummary'] : null ] );
-		$text .= Html::rawElement( 'label', [ 'for' => 'pf_fi_summary' ], 'Summary input' );
-		$text .= "&nbsp;</span>";
-		// Minor edit
-		$text .= '<span>';
-		$text .= Html::input( 'pf_fi_minor_edit', '1', 'checkbox', [ 'id' => 'pf_fi_minor_edit', 'checked' => ( isset( $standardInputs['inputMinorEdit'] ) ) ? $standardInputs['inputMinorEdit'] : null ] );
-		$text .= Html::rawElement( 'label', [ 'for' => 'pf_fi_minor_edit' ], 'Minor edit input' );
-		$text .= "&nbsp;</span>";
-		// Watch
-		$text .= '<span>';
-		$text .= Html::input( 'pf_fi_watch', '1', 'checkbox', [ 'id' => 'pf_fi_watch', 'checked' => ( isset( $standardInputs['inputWatch'] ) ) ? $standardInputs['inputWatch'] : null ] );
-		$text .= Html::rawElement( 'label', [ 'for' => 'pf_fi_watch' ], 'Watch input' );
-		$text .= "&nbsp;</span>";
-		// Save
-		$text .= '<span>';
-		$text .= Html::input( 'pf_fi_save', '1', 'checkbox', [ 'id' => 'pf_fi_save', 'checked' => ( isset( $standardInputs['inputSave'] ) ) ? $standardInputs['inputSave'] : null ] );
-		$text .= Html::rawElement( 'label', [ 'for' => 'pf_fi_save' ], 'Save input' );
-		$text .= "&nbsp;</span>";
-		// Preview
-		$text .= '<span>';
-		$text .= Html::input( 'pf_fi_preview', '1', 'checkbox', [ 'id' => 'pf_fi_preview', 'checked' => ( isset( $standardInputs['inputPreview'] ) ) ? $standardInputs['inputPreview'] : null ] );
-		$text .= Html::rawElement( 'label', [ 'for' => 'pf_fi_preview' ], 'Preview input' );
-		$text .= "&nbsp;</span>";
-		// Changes
-		$text .= '<span>';
-		$text .= Html::input( 'pf_fi_changes', '1', 'checkbox', [ 'id' => 'pf_fi_changes', 'checked' => ( isset( $standardInputs['inputChanges'] ) ) ? $standardInputs['inputChanges'] : null ] );
-		$text .= Html::rawElement( 'label', [ 'for' => 'pf_fi_changes' ], 'Changes input' );
-		$text .= "&nbsp;</span>";
-		// Cancel
-		$text .= '<span>';
-		$text .= Html::input( 'pf_fi_cancel', '1', 'checkbox', [ 'id' => 'pf_fi_cancel', 'checked' => ( isset( $standardInputs['inputCancel'] ) ) ? $standardInputs['inputCancel'] : null ] );
-		$text .= Html::rawElement( 'label', [ 'for' => 'pf_fi_cancel' ], 'Cancel input' );
-		$text .= "&nbsp;</span>";
-
-		$text .= "</p>";
 		$text .= "</div>\n";
 
 		global $wgOut;
@@ -410,7 +343,7 @@ class PFPageSchemas extends PSExtensionHandler {
 	/**
 	 * Returns the HTML for inputs to define a single form field,
 	 * within the Page Schemas 'edit schema' page.
-	 * @param PFField $psField
+	 * @param PSField $psField
 	 * @return array
 	 */
 	public static function getFieldEditingHTML( $psField ) {
@@ -533,13 +466,13 @@ class PFPageSchemas extends PSExtensionHandler {
 				$pfarray = [];
 				$formName = (string)$child->attributes()->name;
 				$pfarray['name'] = $formName;
-				foreach ( $child->children() as $tag => $formelem ) {
-					if ( $tag == "standardInputs" ) {
+				foreach ( $child->children() as $childTag => $formelem ) {
+					if ( $childTag == "standardInputs" ) {
 						foreach ( $formelem->attributes() as $attr => $value ) {
 							$pfarray[$attr] = (string)$formelem->attributes()->$attr;
 						}
 					} else {
-						$pfarray[$tag] = (string)$formelem;
+						$pfarray[$childTag] = (string)$formelem;
 					}
 				}
 				return $pfarray;
@@ -683,34 +616,9 @@ class PFPageSchemas extends PSExtensionHandler {
 		$formItems, $formDataFromSchema, $categoryName ) {
 		global $wgUser;
 
-		$input = [];
-		if ( array_key_exists( 'inputFreeText', $formDataFromSchema ) ) {
-			$input['free text'] = '{{{standard input|free text|rows=10}}}';
-		}
-		if ( array_key_exists( 'inputSummary', $formDataFromSchema ) ) {
-			$input['summary'] = '{{{standard input|summary}}}';
-		}
-		if ( array_key_exists( 'inputMinorEdit', $formDataFromSchema ) ) {
-			$input['minor edit'] = '{{{standard input|minor edit}}}';
-		}
-		if ( array_key_exists( 'inputWatch', $formDataFromSchema ) ) {
-			$input['watch'] = '{{{standard input|watch}}}';
-		}
-		if ( array_key_exists( 'inputSave', $formDataFromSchema ) ) {
-			$input['save'] = '{{{standard input|save}}}';
-		}
-		if ( array_key_exists( 'inputPreview', $formDataFromSchema ) ) {
-			$input['preview'] = '{{{standard input|preview}}}';
-		}
-		if ( array_key_exists( 'inputChanges', $formDataFromSchema ) ) {
-			$input['changes'] = '{{{standard input|changes}}}';
-		}
-		if ( array_key_exists( 'inputCancel', $formDataFromSchema ) ) {
-			$input['cancel'] = '{{{standard input|cancel}}}';
-		}
-
+		$includeFreeText = array_key_exists( 'inputFreeText', $formDataFromSchema );
 		$freeTextLabel = null;
-		if ( array_key_exists( 'freeTextLabel', $formDataFromSchema ) ) {
+		if ( $includeFreeText && array_key_exists( 'freeTextLabel', $formDataFromSchema ) ) {
 			$freeTextLabel = $formDataFromSchema['freeTextLabel'];
 		}
 
@@ -725,7 +633,7 @@ class PFPageSchemas extends PSExtensionHandler {
 		if ( array_key_exists( 'EditTitle', $formDataFromSchema ) ) {
 			$form->setEditTitle( $formDataFromSchema['EditTitle'] );
 		}
-		$formContents = $form->createMarkup( $input, $freeTextLabel );
+		$formContents = $form->createMarkup( $includeFreeText, $freeTextLabel );
 		$params = [];
 		$params['user_id'] = $wgUser->getId();
 		$params['page_text'] = $formContents;
@@ -742,6 +650,10 @@ class PFPageSchemas extends PSExtensionHandler {
 	 */
 	public static function generatePages( $pageSchemaObj, $selectedPages ) {
 		global $wgUser;
+
+		if ( $selectedPages == null ) {
+			return;
+		}
 
 		$psFormItems = $pageSchemaObj->getFormItemsList();
 		$form_items = [];
@@ -838,8 +750,10 @@ class PFPageSchemas extends PSExtensionHandler {
 			} elseif ( $psFormItem['type'] == 'Section' ) {
 				$psPageSection = $psFormItem['item'];
 				$form_section = self::getPageSection( $psPageSection );
-				$form_section->setSectionLevel( $psPageSection->getSectionLevel() );
-				$form_items[] = [ 'type' => 'section', 'name' => $form_section->getSectionName(), 'item' => $form_section ];
+				if ( $form_section !== null ) {
+					$form_section->setSectionLevel( $psPageSection->getSectionLevel() );
+					$form_items[] = [ 'type' => 'section', 'name' => $form_section->getSectionName(), 'item' => $form_section ];
+				}
 			}
 
 		}
